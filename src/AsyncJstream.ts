@@ -1,7 +1,8 @@
 import { fisherYatesShuffle } from "./privateUtils/data";
 import { Awaitable } from "./types/async";
+import { BreakSignal } from "./types/symbols";
 import { DeLiteral } from "./types/utility";
-import { breakSignal, BreakSignal } from "./utils/symbols";
+import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
     Partial<{
@@ -42,12 +43,8 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public static of<T>(...items: readonly T[]): AsyncJstream<T> {
-        return new AsyncJstream(async function* () {
-            for (const item of items) {
-                yield await item;
-            }
-        });
+    public static of<T>(...items: T[]): AsyncJstream<T> {
+        return new AsyncJstream(() => items);
     }
 
     public async forEach(
@@ -80,7 +77,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public filter<R extends T = T>(
+    public filter<R extends T = Awaited<T>>(
         predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
     ): AsyncJstream<R> {
         const self = this;
@@ -96,7 +93,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     /**
      * Removes duplicate items from the stream.
      */
-    public unique(): AsyncJstream<T>;
+    public unique(): AsyncJstream<Awaited<T>>;
 
     /**
      * Removes duplicate items from the stream
@@ -104,14 +101,14 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
      */
     public unique(
         identifier: (item: Awaited<T>) => Awaitable<any>
-    ): AsyncJstream<T>;
+    ): AsyncJstream<Awaited<T>>;
 
     public unique(
         identifier: (item: Awaited<T>) => Awaitable<any> = i => i
-    ): AsyncJstream<T> {
+    ): AsyncJstream<Awaited<T>> {
         const self = this;
         return new AsyncJstream(async function* () {
-            const yielded = new Set<any>();
+            const yielded = new Set<unknown>();
             for await (const item of self) {
                 const id = await identifier(item);
                 if (!yielded.has(id)) {
@@ -122,7 +119,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public shuffle(): AsyncJstream<T> {
+    /**
+     * Shuffles the items in the stream.
+     */
+    public shuffle(): AsyncJstream<Awaited<T>> {
         return new AsyncJstream(
             async () => {
                 const array = await this.toArray();
@@ -133,6 +133,42 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         );
     }
 
+    /**
+     * Shuffles the stream in blocks of a fixed size.
+     */
+    public blockShuffle(
+        blockSize: number | bigint = 100
+    ): AsyncJstream<Awaited<T>> {
+        // TODO?: blocks of random size?
+
+        // TODO add constraints to blockSize (integer and x > 0)
+        //     TODO add requireInteger, requireNumber, etc.
+
+        const blockSizeAsNumber = Number(blockSize);
+        const self = this;
+        return new AsyncJstream(async function* () {
+            const block: Awaited<T>[] = [];
+
+            for await (const item of self) {
+                block.push(item);
+
+                if (block.length >= blockSizeAsNumber) {
+                    fisherYatesShuffle(block);
+                    yield* block;
+                    block.length = 0;
+                }
+            }
+
+            if (block.length > 0) {
+                fisherYatesShuffle(block);
+                yield* block;
+            }
+        });
+    }
+
+    /**
+     * Copies stream into an {@link Array}.
+     */
     public async toArray(): Promise<Awaited<T>[]> {
         const source = await this.getSource();
         if (this.properties.freshSource && Array.isArray(source)) {
@@ -146,6 +182,9 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
+    /**
+     * Copies stream into a {@Link Set}.
+     */
     public async toSet(): Promise<Set<Awaited<T>>> {
         const source = await this.getSource();
         if (this.properties.freshSource && source instanceof Set) {
@@ -222,24 +261,24 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         ) => Awaited<AwaitableR>
     ): Promise<F>;
 
-    public async fold<AwaitableR, F>(
-        initialValue: AwaitableR,
+    public async fold<R, F>(
+        initialValue: Awaitable<R>,
         folder: (
-            result: Awaited<AwaitableR>,
+            result: Awaited<R>,
             item: Awaited<T>,
             index: number
-        ) => Awaited<AwaitableR>,
-        finalize: (result: Awaited<AwaitableR>, count: number) => Awaitable<F>
+        ) => Awaitable<R>,
+        finalize: (result: Awaited<R>, count: number) => Awaitable<F>
     ): Promise<F>;
 
-    public async fold<AwaitableR, F>(
-        initialValue: AwaitableR,
+    public async fold<R, F>(
+        initialValue: Awaitable<R>,
         folder: (
-            result: Awaited<AwaitableR>,
+            result: Awaited<R>,
             item: Awaited<T>,
             index: number
-        ) => Awaited<AwaitableR>,
-        finalize?: (result: Awaited<AwaitableR>, count: number) => Awaitable<F>
+        ) => Awaitable<R>,
+        finalize?: (result: Awaited<R>, count: number) => Awaitable<F>
     ): Promise<F> {
         let i = 1;
         let result = await initialValue;
@@ -252,7 +291,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         if (finalize !== undefined) {
             return await finalize(result, i);
         } else {
-            return result as unknown as F;
+            return result as F;
         }
     }
 }
