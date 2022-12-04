@@ -1,4 +1,5 @@
 import { Awaitable } from "./types/async";
+import { DeLiteral } from "./types/utility";
 import { breakSignal, BreakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -148,6 +149,88 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 result.add(item);
             }
             return result;
+        }
+    }
+
+    public async reduce(
+        reducer: (
+            result: DeLiteral<T>,
+            item: T,
+            index: number
+        ) => Awaitable<DeLiteral<T>>
+    ): Promise<DeLiteral<T>>;
+
+    public async reduce<F>(
+        reducer: (
+            result: DeLiteral<T>,
+            item: T,
+            index: number
+        ) => Awaitable<DeLiteral<T>>,
+        finalize: (result: DeLiteral<T>, count: number) => Awaitable<F>
+    ): Promise<F>;
+
+    public async reduce<F = DeLiteral<T>>(
+        reducer: (
+            result: DeLiteral<T>,
+            item: T,
+            index: number
+        ) => Awaitable<DeLiteral<T>>,
+        finalize?: (result: DeLiteral<T>, count: number) => Awaitable<F>
+    ): Promise<F> {
+        const iterator = this[Symbol.asyncIterator]();
+        let next = await iterator.next();
+
+        if (next.done) {
+            throw new Error(
+                "cannot reduce empty async iterable. no initial value"
+            );
+        }
+
+        let i = 1;
+        
+        let result: any = next.value;
+
+        while (!(next = await iterator.next()).done) {
+            result = await reducer(result, next.value, i);
+
+            i++;
+        }
+
+        if (finalize !== undefined) {
+            return await finalize(result, i);
+        } else {
+            return result as F;
+        }
+    }
+
+    public async fold<R>(
+        initialValue: R,
+        folder: (result: R, item: T, index: number) => Awaitable<R>
+    ): Promise<R>;
+
+    public async fold<R, F>(
+        initialValue: R,
+        folder: (result: R, item: T, index: number) => Awaitable<R>,
+        finalize: (result: R, count: number) => Awaitable<F>
+    ): Promise<F>;
+
+    public async fold<R, F = R>(
+        initialValue: R,
+        folder: (result: R, item: T, index: number) => Awaitable<R>,
+        finalize?: (result: R, count: number) => Awaitable<F>
+    ): Promise<F> {
+        let i = 1;
+        let result = initialValue;
+
+        for await (const item of this) {
+            result = await folder(result, item, i);
+            i++;
+        }
+
+        if (finalize !== undefined) {
+            return await finalize(result, i);
+        } else {
+            return result as unknown as F;
         }
     }
 }
