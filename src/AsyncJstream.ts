@@ -97,7 +97,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     /**
      * Removes duplicate items from the stream
-     * @param identifier How to identify the item.
+     * @param identifier How to identify each item.
      */
     public unique(
         identifier: (item: Awaited<T>) => Awaitable<any>
@@ -107,10 +107,13 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         identifier: (item: Awaited<T>) => Awaitable<any> = i => i
     ): AsyncJstream<Awaited<T>> {
         const self = this;
+        
         return new AsyncJstream(async function* () {
             const yielded = new Set<unknown>();
+
             for await (const item of self) {
                 const id = await identifier(item);
+
                 if (!yielded.has(id)) {
                     yield item;
                     yielded.add(id);
