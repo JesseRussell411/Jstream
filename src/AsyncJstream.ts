@@ -1,3 +1,4 @@
+import { fisherYatesShuffle } from "./privateUtils/data";
 import { Awaitable } from "./types/async";
 import { DeLiteral } from "./types/utility";
 import { breakSignal, BreakSignal } from "./utils/symbols";
@@ -9,11 +10,11 @@ export type AsyncJstreamProperties<_> = Readonly<
 >;
 
 export default class AsyncJstream<T> implements AsyncIterable<T> {
-    private readonly getSource: () => Awaitable<AsyncIterable<T>>;
+    private readonly getSource: () => Awaitable<AsyncIterable<T> | Iterable<T>>;
     private readonly properties: AsyncJstreamProperties<T>;
 
     public constructor(
-        getSource: () => Awaitable<AsyncIterable<T>>,
+        getSource: () => Awaitable<AsyncIterable<T> | Iterable<T>>,
         properties: AsyncJstreamProperties<T> = {}
     ) {
         this.getSource = getSource;
@@ -35,23 +36,13 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             | (() => Awaitable<AsyncIterable<T> | Iterable<T>>)
     ) {
         if (source instanceof Function) {
-            return new AsyncJstream(async function* () {
-                for await (const item of await source()) {
-                    yield item;
-                }
-            });
+            return new AsyncJstream(source);
         } else {
-            return new AsyncJstream(async function* () {
-                for await (const item of await source) {
-                    yield item;
-                }
-            });
+            return new AsyncJstream(() => source);
         }
     }
 
-    public static of<AwaitableT>(
-        ...items: readonly AwaitableT[]
-    ): AsyncJstream<Awaited<AwaitableT>> {
+    public static of<T>(...items: readonly T[]): AsyncJstream<T> {
         return new AsyncJstream(async function* () {
             for (const item of items) {
                 yield await item;
@@ -60,7 +51,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     public async forEach(
-        action: (item: T, index: number) => void | Awaitable<BreakSignal>
+        action: (
+            item: Awaited<T>,
+            index: number
+        ) => void | Awaitable<BreakSignal>
     ): Promise<void> {
         let i = 0;
         for await (const item of this) {
@@ -74,7 +68,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     // stream methods
     public map<AwaitableResult>(
-        mapping: (item: T, index: number) => AwaitableResult
+        mapping: (item: Awaited<T>, index: number) => AwaitableResult
     ): AsyncJstream<Awaited<AwaitableResult>> {
         const self = this;
         return new AsyncJstream(async function* () {
@@ -87,7 +81,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     public filter<R extends T = T>(
-        predicate: (item: T, index: number) => Awaitable<boolean>
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
     ): AsyncJstream<R> {
         const self = this;
         return new AsyncJstream(async function* () {
@@ -108,10 +102,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
      * Removes duplicate items from the stream
      * @param identifier How to identify the item.
      */
-    public unique(identifier: (item: T) => Awaitable<any>): AsyncJstream<T>;
+    public unique(
+        identifier: (item: Awaited<T>) => Awaitable<any>
+    ): AsyncJstream<T>;
 
     public unique(
-        identifier: (item: T) => Awaitable<any> = i => i
+        identifier: (item: Awaited<T>) => Awaitable<any> = i => i
     ): AsyncJstream<T> {
         const self = this;
         return new AsyncJstream(async function* () {
@@ -126,12 +122,23 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public async toArray(): Promise<T[]> {
+    public shuffle(): AsyncJstream<T> {
+        return new AsyncJstream(
+            async () => {
+                const array = await this.toArray();
+                fisherYatesShuffle(array);
+                return array;
+            },
+            { freshSource: true }
+        );
+    }
+
+    public async toArray(): Promise<Awaited<T>[]> {
         const source = await this.getSource();
         if (this.properties.freshSource && Array.isArray(source)) {
             return source;
         } else {
-            const result: T[] = [];
+            const result: Awaited<T>[] = [];
             for await (const item of source) {
                 result.push(item);
             }
@@ -139,12 +146,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public async toSet(): Promise<Set<T>> {
+    public async toSet(): Promise<Set<Awaited<T>>> {
         const source = await this.getSource();
         if (this.properties.freshSource && source instanceof Set) {
             return source;
         } else {
-            const result = new Set<T>();
+            const result = new Set<Awaited<T>>();
             for await (const item of source) {
                 result.add(item);
             }
@@ -154,28 +161,31 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public async reduce(
         reducer: (
-            result: DeLiteral<T>,
-            item: T,
+            result: DeLiteral<Awaited<T>>,
+            item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<T>>
-    ): Promise<DeLiteral<T>>;
+        ) => Awaitable<DeLiteral<Awaited<T>>>
+    ): Promise<DeLiteral<Awaited<T>>>;
 
     public async reduce<F>(
         reducer: (
-            result: DeLiteral<T>,
-            item: T,
+            result: DeLiteral<Awaited<T>>,
+            item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<T>>,
-        finalize: (result: DeLiteral<T>, count: number) => Awaitable<F>
+        ) => Awaitable<DeLiteral<Awaited<T>>>,
+        finalize: (result: DeLiteral<Awaited<T>>, count: number) => Awaitable<F>
     ): Promise<F>;
 
-    public async reduce<F = DeLiteral<T>>(
+    public async reduce<F = DeLiteral<Awaited<T>>>(
         reducer: (
-            result: DeLiteral<T>,
-            item: T,
+            result: DeLiteral<Awaited<T>>,
+            item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<T>>,
-        finalize?: (result: DeLiteral<T>, count: number) => Awaitable<F>
+        ) => Awaitable<DeLiteral<Awaited<T>>>,
+        finalize?: (
+            result: DeLiteral<Awaited<T>>,
+            count: number
+        ) => Awaitable<F>
     ): Promise<F> {
         const iterator = this[Symbol.asyncIterator]();
         let next = await iterator.next();
@@ -187,8 +197,8 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
 
         let i = 1;
-        
-        let result: any = next.value;
+
+        let result: DeLiteral<Awaited<T>> = next.value as DeLiteral<Awaited<T>>;
 
         while (!(next = await iterator.next()).done) {
             result = await reducer(result, next.value, i);
@@ -203,24 +213,36 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public async fold<R>(
-        initialValue: R,
-        folder: (result: R, item: T, index: number) => Awaitable<R>
-    ): Promise<R>;
-
-    public async fold<R, F>(
-        initialValue: R,
-        folder: (result: R, item: T, index: number) => Awaitable<R>,
-        finalize: (result: R, count: number) => Awaitable<F>
+    public async fold<AwaitableR, F>(
+        initialValue: AwaitableR,
+        folder: (
+            result: Awaited<AwaitableR>,
+            item: Awaited<T>,
+            index: number
+        ) => Awaited<AwaitableR>
     ): Promise<F>;
 
-    public async fold<R, F = R>(
-        initialValue: R,
-        folder: (result: R, item: T, index: number) => Awaitable<R>,
-        finalize?: (result: R, count: number) => Awaitable<F>
+    public async fold<AwaitableR, F>(
+        initialValue: AwaitableR,
+        folder: (
+            result: Awaited<AwaitableR>,
+            item: Awaited<T>,
+            index: number
+        ) => Awaited<AwaitableR>,
+        finalize: (result: Awaited<AwaitableR>, count: number) => Awaitable<F>
+    ): Promise<F>;
+
+    public async fold<AwaitableR, F>(
+        initialValue: AwaitableR,
+        folder: (
+            result: Awaited<AwaitableR>,
+            item: Awaited<T>,
+            index: number
+        ) => Awaited<AwaitableR>,
+        finalize?: (result: Awaited<AwaitableR>, count: number) => Awaitable<F>
     ): Promise<F> {
         let i = 1;
-        let result = initialValue;
+        let result = await initialValue;
 
         for await (const item of this) {
             result = await folder(result, item, i);
