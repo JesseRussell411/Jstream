@@ -1,4 +1,5 @@
 import { Awaitable } from "./types/async";
+import { breakSignal, BreakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
     Partial<{
@@ -55,6 +56,19 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 yield await item;
             }
         });
+    }
+
+    public async forEach(
+        action: (item: T, index: number) => void | Awaitable<BreakSignal>
+    ): Promise<void> {
+        let i = 0;
+        for await (const item of this) {
+            const signal = await action(item, i);
+
+            if (signal === breakSignal) break;
+
+            i++;
+        }
     }
 
     // stream methods
