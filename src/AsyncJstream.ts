@@ -1,7 +1,10 @@
-import { fisherYatesShuffle } from "./privateUtils/data";
+import Jstream from "./Jstream";
+import { fisherYatesShuffle, toArray } from "./privateUtils/data";
 import { Awaitable } from "./types/async";
+import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
 import { DeLiteral } from "./types/utility";
+import { multiCompare } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -107,7 +110,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         identifier: (item: Awaited<T>) => Awaitable<any> = i => i
     ): AsyncJstream<Awaited<T>> {
         const self = this;
-        
+
         return new AsyncJstream(async function* () {
             const yielded = new Set<unknown>();
 
@@ -120,6 +123,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 }
             }
         });
+    }
+
+    public sortBy(order: Order<T>): AsyncSortedJStream<T> {
+        return new AsyncSortedJStream([order], this.getSource, this.properties);
     }
 
     /**
@@ -296,5 +303,52 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         } else {
             return result as F;
         }
+    }
+
+    public async toJstream(): Promise<Jstream<T>> {
+        return Jstream.from(await this.toArray());
+    }
+}
+
+export type SortedAsyncJStreamProperties<T> = AsyncJstreamProperties<T> &
+    Readonly<Partial<{}>>;
+
+export class AsyncSortedJStream<T> extends AsyncJstream<T> {
+    private readonly order: readonly Comparator<T>[];
+    private readonly getUnsortedSource: () => Awaitable<
+        Iterable<T> | AsyncIterable<T>
+    >;
+    private readonly unsortedProperties: AsyncJstreamProperties<T>;
+
+    public constructor(
+        order: readonly Comparator<T>[],
+        getSource: () => Awaitable<Iterable<T> | AsyncIterable<T>>,
+        properties: SortedAsyncJStreamProperties<T>
+    ) {
+        super(
+            async () => {
+                const source = await getSource();
+                const array =
+                    properties.freshSource && Array.isArray(source)
+                        ? source
+                        : await toArray(source);
+
+                array.sort(multiCompare(order));
+
+                return array;
+            },
+            { freshSource: true }
+        );
+        this.getUnsortedSource = getSource;
+        this.unsortedProperties = properties;
+        this.order = order;
+    }
+
+    public thenBy(order: Order<T>): AsyncSortedJStream<T> {
+        return new AsyncSortedJStream<T>(
+            [...this.order, order],
+            this.getUnsortedSource,
+            this.unsortedProperties
+        );
     }
 }

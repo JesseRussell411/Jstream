@@ -189,3 +189,14 @@ export function smartComparator(a: any, b: any) {
         }
     }
 }
+
+export function multiCompare<T>(orders: readonly Order<T>[]): Comparator<T>{
+    return (a: T, b: T) => {
+        for(const order of orders){
+            const cmp = asComparator(order)(a, b);
+            if (cmp != 0) return cmp;
+        }
+
+        return 0;
+    }
+}
