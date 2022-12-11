@@ -80,9 +80,9 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public filter<R extends T = Awaited<T>>(
+    public filter<R extends Awaited<T> = Awaited<T>>(
         predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
-    ): AsyncJstream<R> {
+    ): AsyncJstream<Awaited<R>> {
         const self = this;
         return new AsyncJstream(async function* () {
             let i = 0;
@@ -125,54 +125,24 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public sortBy(order: Order<T>): AsyncSortedJStream<T> {
-        return new AsyncSortedJStream([order], this.getSource, this.properties);
-    }
-
-    /**
-     * Shuffles the items in the stream.
-     */
-    public shuffle(): AsyncJstream<Awaited<T>> {
-        return new AsyncJstream(
-            async () => {
-                const array = await this.toArray();
-                fisherYatesShuffle(array);
-                return array;
-            },
-            { freshSource: true }
-        );
-    }
-
-    /**
-     * Shuffles the stream in blocks of a fixed size.
-     */
-    public blockShuffle(
-        blockSize: number | bigint = 100
-    ): AsyncJstream<Awaited<T>> {
-        // TODO?: blocks of random size?
-
-        // TODO add constraints to blockSize (integer and x > 0)
-        //     TODO add requireInteger, requireNumber, etc.
-
-        const blockSizeAsNumber = Number(blockSize);
+    public partition(size: number | bigint): AsyncJstream<Awaited<T>[]> {
+        // TODO add requires
+        if (size < 1) throw new Error("partition size must be at least 1");
+        //
+        
         const self = this;
-        return new AsyncJstream(async function* () {
-            const block: Awaited<T>[] = [];
+        return new AsyncJstream(async  function*(){
+            let partition: Awaited<T>[] = [];
+            for await (const item of self){
+                partition.push(item);
 
-            for await (const item of self) {
-                block.push(item);
-
-                if (block.length >= blockSizeAsNumber) {
-                    fisherYatesShuffle(block);
-                    yield* block;
-                    block.length = 0;
+                if (partition.length >= size){
+                    yield partition;
+                    partition = [];
                 }
             }
 
-            if (block.length > 0) {
-                fisherYatesShuffle(block);
-                yield* block;
-            }
+            if (partition.length > 0) yield partition;
         });
     }
 
@@ -307,48 +277,5 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public async toJstream(): Promise<Jstream<T>> {
         return Jstream.from(await this.toArray());
-    }
-}
-
-export type SortedAsyncJStreamProperties<T> = AsyncJstreamProperties<T> &
-    Readonly<Partial<{}>>;
-
-export class AsyncSortedJStream<T> extends AsyncJstream<T> {
-    private readonly order: readonly Comparator<T>[];
-    private readonly getUnsortedSource: () => Awaitable<
-        Iterable<T> | AsyncIterable<T>
-    >;
-    private readonly unsortedProperties: AsyncJstreamProperties<T>;
-
-    public constructor(
-        order: readonly Comparator<T>[],
-        getSource: () => Awaitable<Iterable<T> | AsyncIterable<T>>,
-        properties: SortedAsyncJStreamProperties<T>
-    ) {
-        super(
-            async () => {
-                const source = await getSource();
-                const array =
-                    properties.freshSource && Array.isArray(source)
-                        ? source
-                        : await toArray(source);
-
-                array.sort(multiCompare(order));
-
-                return array;
-            },
-            { freshSource: true }
-        );
-        this.getUnsortedSource = getSource;
-        this.unsortedProperties = properties;
-        this.order = order;
-    }
-
-    public thenBy(order: Order<T>): AsyncSortedJStream<T> {
-        return new AsyncSortedJStream<T>(
-            [...this.order, order],
-            this.getUnsortedSource,
-            this.unsortedProperties
-        );
     }
 }
