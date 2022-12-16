@@ -18,6 +18,7 @@ export function toArray<T>(items: Iterable<T>): T[];
 export function toArray<T>(
     items: Iterable<T> | AsyncIterable<T>
 ): T[] | Promise<Awaited<T>[]>;
+
 export function toArray<T>(
     items: Iterable<T> | AsyncIterable<T>
 ): T[] | Promise<Awaited<T>[]> {
@@ -39,6 +40,7 @@ export function toSet<T>(items: Iterable<T>): Set<T>;
 export function toSet<T>(
     items: Iterable<T> | AsyncIterable<T>
 ): Set<T> | Promise<Set<Awaited<T>>>;
+
 export function toSet<T>(
     items: Iterable<T> | AsyncIterable<T>
 ): Set<T> | Promise<Set<Awaited<T>>> {

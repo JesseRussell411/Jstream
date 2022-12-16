@@ -83,6 +83,14 @@ export function smartComparator(a: any, b: any) {
 
         // number or bigint
         case 3:
+            // TODO test performance difference
+            // if (a < b){
+            //     return -1;
+            // } else if (a > b) {
+            //     return 1;
+            // } else {
+            //     return
+            // }
             if (typeof a === "number") {
                 if (typeof b === "number") {
                     return a - b;
@@ -110,12 +118,12 @@ export function smartComparator(a: any, b: any) {
                 if (symbolB.description === undefined) {
                     return 0;
                 } else {
-                    // send un-labeled symbols to end of ascending sort
-                    return 1;
+                    // send un-labeled symbols to start of ascending sort
+                    return -1;
                 }
             } else if (symbolB.description === undefined) {
-                // send un-labeled symbols to end of ascending sort
-                return -1;
+                // send un-labeled symbols to start of ascending sort
+                return 1;
             } else {
                 return symbolA.description.localeCompare(symbolB.description);
             }
@@ -143,6 +151,7 @@ export function smartComparator(a: any, b: any) {
 
         // undefined
         case 10:
+            // pointless for reason stated above
             return 0;
     }
 
@@ -182,7 +191,7 @@ export function smartComparator(a: any, b: any) {
                 return 9;
 
             // this case will actually be ignored by javascript
-            // Array.sort doesn't actually sort undefined values. 
+            // Array.sort doesn't actually sort undefined values.
             // It just puts all the undefineds at the end of the array even if the comparator says otherwise.
             case "undefined":
                 return 10;
@@ -190,13 +199,18 @@ export function smartComparator(a: any, b: any) {
     }
 }
 
-export function multiCompare<T>(orders: readonly Order<T>[]): Comparator<T>{
+export function multiCompare<T>(orders: Iterable<Order<T>>): Comparator<T> {
+    const comparators: Comparator<T>[] = [];
+    for (const order of orders) {
+        comparators.push(asComparator(order));
+    }
+
     return (a: T, b: T) => {
-        for(const order of orders){
-            const cmp = asComparator(order)(a, b);
+        for (const comparator of comparators) {
+            const cmp = comparator(a, b);
             if (cmp != 0) return cmp;
         }
 
         return 0;
-    }
+    };
 }

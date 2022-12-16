@@ -1,10 +1,10 @@
 import Jstream from "./Jstream";
-import { fisherYatesShuffle, toArray } from "./privateUtils/data";
-import { Awaitable } from "./types/async";
-import { Comparator, Order } from "./types/sorting";
+import { toArray } from "./privateUtils/data";
+import { isStandardCollection } from "./privateUtils/typeGuards";
+import { Awaitable, AwaitableIterable } from "./types/async";
+import { StandardCollection } from "./types/collections";
 import { BreakSignal } from "./types/symbols";
 import { DeLiteral } from "./types/utility";
-import { multiCompare } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -14,11 +14,11 @@ export type AsyncJstreamProperties<_> = Readonly<
 >;
 
 export default class AsyncJstream<T> implements AsyncIterable<T> {
-    private readonly getSource: () => Awaitable<AsyncIterable<T> | Iterable<T>>;
+    private readonly getSource: () => Awaitable<AwaitableIterable<T>>;
     private readonly properties: AsyncJstreamProperties<T>;
 
     public constructor(
-        getSource: () => Awaitable<AsyncIterable<T> | Iterable<T>>,
+        getSource: () => Awaitable<AwaitableIterable<T>>,
         properties: AsyncJstreamProperties<T> = {}
     ) {
         this.getSource = getSource;
@@ -36,11 +36,13 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     // factories:
     public static from<T>(
         source:
-            | Awaitable<AsyncIterable<T> | Iterable<T>>
-            | (() => Awaitable<AsyncIterable<T> | Iterable<T>>)
+            | Awaitable<AwaitableIterable<T>>
+            | (() => Awaitable<AwaitableIterable<T>>)
     ) {
         if (source instanceof Function) {
             return new AsyncJstream(source);
+        } else if (source instanceof AsyncJstream) {
+            return source;
         } else {
             return new AsyncJstream(() => source);
         }
@@ -129,14 +131,14 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         // TODO add requires
         if (size < 1) throw new Error("partition size must be at least 1");
         //
-        
+
         const self = this;
-        return new AsyncJstream(async  function*(){
+        return new AsyncJstream(async function* () {
             let partition: Awaited<T>[] = [];
-            for await (const item of self){
+            for await (const item of self) {
                 partition.push(item);
 
-                if (partition.length >= size){
+                if (partition.length >= size) {
                     yield partition;
                     partition = [];
                 }
@@ -146,10 +148,56 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
+    public append<O>(item: O): AsyncJstream<Awaited<T> | Awaited<O>> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            yield* self;
+            yield item;
+        });
+    }
+
+    public prepend<O>(item: O): AsyncJstream<Awaited<O> | Awaited<T>> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            yield item;
+            yield* self;
+        });
+    }
+
+    public concat<O>(
+        items: Awaitable<AwaitableIterable<O>>
+    ): AsyncJstream<Awaited<T> | Awaited<O>> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            yield* self;
+            yield* await items;
+        });
+    }
+
+    public preConcat<O>(
+        items: Awaitable<AwaitableIterable<O>>
+    ): AsyncJstream<Awaited<O> | Awaited<T>> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            yield* self;
+            yield* await items;
+        });
+    }
+
+    public async some(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<boolean> {
+        let i = 0;
+        for await (const item of this) {
+            if (await predicate(item, i++)) return true;
+        }
+        return false;
+    }
+
     /**
      * Copies stream into an {@link Array}.
      */
-    public async toArray(): Promise<Awaited<T>[]> {
+    public async toArray(): Promise<(T | Awaited<T>)[]> {
         const source = await this.getSource();
         if (this.properties.freshSource && Array.isArray(source)) {
             return source;
@@ -165,7 +213,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     /**
      * Copies stream into a {@Link Set}.
      */
-    public async toSet(): Promise<Set<Awaited<T>>> {
+    public async toSet(): Promise<Set<T | Awaited<T>>> {
         const source = await this.getSource();
         if (this.properties.freshSource && source instanceof Set) {
             return source;
@@ -175,6 +223,17 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 result.add(item);
             }
             return result;
+        }
+    }
+
+    public async toStandardCollection(): Promise<
+        StandardCollection<T | Awaited<T>>
+    > {
+        const source = await this.getSource();
+        if (this.properties.freshSource && isStandardCollection(source)) {
+            return source;
+        } else {
+            return await toArray(source);
         }
     }
 
@@ -232,14 +291,14 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public async fold<AwaitableR, F>(
-        initialValue: AwaitableR,
+    public async fold<R>(
+        initialValue: R,
         folder: (
-            result: Awaited<AwaitableR>,
+            result: Awaited<R>,
             item: Awaited<T>,
             index: number
-        ) => Awaited<AwaitableR>
-    ): Promise<F>;
+        ) => Awaited<R>
+    ): Promise<Awaited<R>>;
 
     public async fold<R, F>(
         initialValue: Awaitable<R>,
@@ -275,7 +334,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public async toJstream(): Promise<Jstream<T>> {
-        return Jstream.from(await this.toArray());
+    public async toJstream(): Promise<Jstream<T | Awaited<T>>> {
+        return Jstream.from(await this.toStandardCollection() as Iterable<T>);
     }
 }
