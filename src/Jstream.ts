@@ -39,7 +39,7 @@ import {
 } from "./types/collections";
 import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
-import { DeLiteral } from "./types/utility";
+import { General } from "./types/utility";
 import { multiCompare, reverseOrder } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
@@ -167,17 +167,17 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public reduce(
-        reducer: (result: DeLiteral<T>, item: T, index: number) => DeLiteral<T>
-    ): DeLiteral<T>;
+        reducer: (result: General<T>, item: T, index: number) => General<T>
+    ): General<T>;
 
     public reduce<F>(
-        reducer: (result: DeLiteral<T>, item: T, index: number) => DeLiteral<T>,
-        finalize: (result: DeLiteral<T>, count: number) => F
+        reducer: (result: General<T>, item: T, index: number) => General<T>,
+        finalize: (result: General<T>, count: number) => F
     ): F;
 
-    public reduce<F = DeLiteral<T>>(
-        reducer: (result: DeLiteral<T>, item: T, index: number) => DeLiteral<T>,
-        finalize?: (result: DeLiteral<T>, count: number) => F
+    public reduce<F = General<T>>(
+        reducer: (result: General<T>, item: T, index: number) => General<T>,
+        finalize?: (result: General<T>, count: number) => F
     ): F {
         const iterator = this[Symbol.iterator]();
         let next = iterator.next();
@@ -188,7 +188,7 @@ export default class Jstream<T> implements Iterable<T> {
 
         let i = 1;
 
-        let result: DeLiteral<T> = next.value as DeLiteral<Awaited<T>>;
+        let result: General<T> = next.value as General<Awaited<T>>;
 
         while (!(next = iterator.next()).done) {
             result = reducer(result, next.value, i);

@@ -4,7 +4,7 @@ import { isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import { StandardCollection } from "./types/collections";
 import { BreakSignal } from "./types/symbols";
-import { DeLiteral } from "./types/utility";
+import { General } from "./types/utility";
 import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -184,8 +184,80 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
+    public groupBy<K>(
+        keySelector: (item: Awaited<T>, index: number) => K
+    ): AsyncJstream<[Awaited<K>, Awaited<T>[]]>;
+
+    public groupBy<K, V>(
+        keySelector: (item: Awaited<T>, index: number) => K,
+        groupSelector: undefined,
+        valueSelector: (item: Awaited<T>, index: number) => V
+    ): AsyncJstream<[Awaited<K>, Awaited<V>[]]>;
+
+    public groupBy<K, G>(
+        keySelector: (item: Awaited<T>, index: number) => K,
+        groupSelector: (group: Awaited<T>[], key: Awaited<K>) => G
+    ): AsyncJstream<[Awaited<K>, Awaited<G>]>;
+
+    public groupBy<K, G, V>(
+        keySelector: (item: Awaited<T>, index: number) => K,
+        groupSelector: (group: Awaited<V>[], key: Awaited<K>) => G,
+        valueSelector: (item: Awaited<T>, index: number) => V
+    ): AsyncJstream<[Awaited<K>, Awaited<G>]>;
+
+    public groupBy<K, G>(
+        keySelector: (item: Awaited<T>, index: number) => K,
+        groupSelector?: (group: any[], key: Awaited<K>) => G,
+        valueSelector: (item: Awaited<T>, index: number) => any = i => i
+    ): AsyncJstream<[Awaited<K>, Awaited<G>]> {
+        return new AsyncJstream(async () => {
+            // group the items
+            const groups = new Map<Awaited<K>, any>();
+
+            let i = 0;
+            for await (const item of this) {
+                const key = await keySelector(item, i);
+                const value = await valueSelector(item, i);
+
+                let group = groups.get(key);
+                if (group === undefined) {
+                    groups.set(key, [value]);
+                } else {
+                    group.push(value);
+                }
+                i++;
+            }
+
+            // apply the group selector
+            if (groupSelector !== undefined) {
+                for (const entry of groups) {
+                    groups.set(
+                        entry[0],
+                        await groupSelector(entry[1], entry[0])
+                    );
+                }
+            }
+
+            return groups;
+        });
+    }
+
+    /**
+     * @returns Whether the predicate returns true for any items in the {@link AsyncJstream}.
+     * @param predicate
+     */
     public async some(
         predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<boolean>;
+
+    /** @returns Whether the {@link AsyncJstream} has any items. */
+    public async some(): Promise<boolean>;
+
+    public async some(
+        predicate: (
+            item: Awaited<T>,
+            index: number
+        ) => Awaitable<boolean> = () => true
     ): Promise<boolean> {
         let i = 0;
         for await (const item of this) {
@@ -195,75 +267,43 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     /**
-     * Copies stream into an {@link Array}.
+     * @returns Whether the predicate returns true for every item in the {@link AsyncJstream}.
+     * @param predicate
      */
-    public async toArray(): Promise<(T | Awaited<T>)[]> {
-        const source = await this.getSource();
-        if (this.properties.freshSource && Array.isArray(source)) {
-            return source;
-        } else {
-            const result: Awaited<T>[] = [];
-            for await (const item of source) {
-                result.push(item);
-            }
-            return result;
+    public async every(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<boolean> {
+        let i = 0;
+        for await (const item of this) {
+            if (!(await predicate(item, i++))) return false;
         }
-    }
-
-    /**
-     * Copies stream into a {@Link Set}.
-     */
-    public async toSet(): Promise<Set<T | Awaited<T>>> {
-        const source = await this.getSource();
-        if (this.properties.freshSource && source instanceof Set) {
-            return source;
-        } else {
-            const result = new Set<Awaited<T>>();
-            for await (const item of source) {
-                result.add(item);
-            }
-            return result;
-        }
-    }
-
-    public async toStandardCollection(): Promise<
-        StandardCollection<T | Awaited<T>>
-    > {
-        const source = await this.getSource();
-        if (this.properties.freshSource && isStandardCollection(source)) {
-            return source;
-        } else {
-            return await toArray(source);
-        }
+        return true;
     }
 
     public async reduce(
         reducer: (
-            result: DeLiteral<Awaited<T>>,
+            result: General<Awaited<T>>,
             item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<Awaited<T>>>
-    ): Promise<DeLiteral<Awaited<T>>>;
+        ) => Awaitable<General<Awaited<T>>>
+    ): Promise<General<Awaited<T>>>;
 
     public async reduce<F>(
         reducer: (
-            result: DeLiteral<Awaited<T>>,
+            result: General<Awaited<T>>,
             item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<Awaited<T>>>,
-        finalize: (result: DeLiteral<Awaited<T>>, count: number) => Awaitable<F>
+        ) => Awaitable<General<Awaited<T>>>,
+        finalize: (result: General<Awaited<T>>, count: number) => Awaitable<F>
     ): Promise<F>;
 
-    public async reduce<F = DeLiteral<Awaited<T>>>(
+    public async reduce<F = General<Awaited<T>>>(
         reducer: (
-            result: DeLiteral<Awaited<T>>,
+            result: General<Awaited<T>>,
             item: Awaited<T>,
             index: number
-        ) => Awaitable<DeLiteral<Awaited<T>>>,
-        finalize?: (
-            result: DeLiteral<Awaited<T>>,
-            count: number
-        ) => Awaitable<F>
+        ) => Awaitable<General<Awaited<T>>>,
+        finalize?: (result: General<Awaited<T>>, count: number) => Awaitable<F>
     ): Promise<F> {
         const iterator = this[Symbol.asyncIterator]();
         let next = await iterator.next();
@@ -276,7 +316,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
         let i = 1;
 
-        let result: DeLiteral<Awaited<T>> = next.value as DeLiteral<Awaited<T>>;
+        let result: General<Awaited<T>> = next.value as General<Awaited<T>>;
 
         while (!(next = await iterator.next()).done) {
             result = await reducer(result, next.value, i);
@@ -334,7 +374,50 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
+    /**
+     * Copies stream into an {@link Array}.
+     */
+    public async toArray(): Promise<(T | Awaited<T>)[]> {
+        const source = await this.getSource();
+        if (this.properties.freshSource && Array.isArray(source)) {
+            return source;
+        } else {
+            const result: Awaited<T>[] = [];
+            for await (const item of source) {
+                result.push(item);
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Copies stream into a {@Link Set}.
+     */
+    public async toSet(): Promise<Set<T | Awaited<T>>> {
+        const source = await this.getSource();
+        if (this.properties.freshSource && source instanceof Set) {
+            return source;
+        } else {
+            const result = new Set<Awaited<T>>();
+            for await (const item of source) {
+                result.add(item);
+            }
+            return result;
+        }
+    }
+
+    public async toStandardCollection(): Promise<
+        StandardCollection<T | Awaited<T>>
+    > {
+        const source = await this.getSource();
+        if (this.properties.freshSource && isStandardCollection(source)) {
+            return source;
+        } else {
+            return await toArray(source);
+        }
+    }
+
     public async toJstream(): Promise<Jstream<T | Awaited<T>>> {
-        return Jstream.from(await this.toStandardCollection() as Iterable<T>);
+        return Jstream.from((await this.toStandardCollection()) as Iterable<T>);
     }
 }
