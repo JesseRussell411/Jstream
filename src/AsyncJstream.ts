@@ -1,5 +1,10 @@
 import Jstream from "./Jstream";
 import { nonIteratedCountOrUndefined, toArray } from "./privateUtils/data";
+import {
+    requireGreaterThanZero,
+    requireInteger,
+} from "./privateUtils/errorGuards";
+import { identity } from "./privateUtils/functional";
 import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import { StandardCollection } from "./types/collections";
@@ -109,7 +114,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     ): AsyncJstream<Awaited<T>>;
 
     public unique(
-        identifier: (item: Awaited<T>) => Awaitable<any> = i => i
+        identifier: (item: Awaited<T>) => Awaitable<any> = identity
     ): AsyncJstream<Awaited<T>> {
         const self = this;
 
@@ -128,9 +133,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     public partition(size: number | bigint): AsyncJstream<Awaited<T>[]> {
-        // TODO add requires
-        if (size < 1) throw new Error("partition size must be at least 1");
-        //
+        requireGreaterThanZero(requireInteger(size));
 
         const self = this;
         return new AsyncJstream(async function* () {
@@ -374,22 +377,22 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         }
     }
 
-    public async count(): Promise<number>{
+    public async count(): Promise<number> {
         const source = await this.getSource();
 
-        if (isIterable(source)){
+        if (isIterable(source)) {
             const nonIteratedCount = nonIteratedCountOrUndefined(source);
             if (nonIteratedCount !== undefined) return nonIteratedCount;
         }
 
         let count = 0;
-        for await(const _ of source) count++;
+        for await (const _ of source) count++;
         return count;
     }
 
     public async nonIteratedCountOrUndefined(): Promise<number | undefined> {
         const source = await this.getSource();
-        if (isIterable(source)){
+        if (isIterable(source)) {
             return nonIteratedCountOrUndefined(source);
         } else {
             return undefined;

@@ -37,7 +37,7 @@ export function asComparator<T>(order: Order<T>): Comparator<T> {
  * doesn't attempt to sort objects
  * sorts functions by number of parameters
  */
-export function smartComparator(a: any, b: any) {
+export function smartComparator(a: any, b: any): number {
     // TODO! add wrapper class support (Number, Boolean, etc.)
 
     // TYPE RATINGS:
@@ -84,6 +84,7 @@ export function smartComparator(a: any, b: any) {
         // number or bigint
         case 3:
             // TODO test performance difference
+
             // if (a < b){
             //     return -1;
             // } else if (a > b) {
@@ -91,18 +92,25 @@ export function smartComparator(a: any, b: any) {
             // } else {
             //     return
             // }
-            if (typeof a === "number") {
-                if (typeof b === "number") {
-                    return a - b;
-                } else {
-                    return a - Number(b);
-                }
+
+            // if (typeof a === "number") {
+            //     if (typeof b === "number") {
+            //         return a - b;
+            //     } else {
+            //         return a - Number(b);
+            //     }
+            // } else {
+            //     if (typeof b === "number") {
+            //         return Number(a) - b;
+            //     } else {
+            //         return Number(a - b);
+            //     }
+            // }
+
+            if (typeof a === "bigint" && typeof b === "bigint") {
+                return Number(a - b);
             } else {
-                if (typeof b === "number") {
-                    return Number(a) - b;
-                } else {
-                    return Number(a - b);
-                }
+                return Number(a) - Number(b);
             }
 
         // string

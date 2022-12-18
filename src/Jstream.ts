@@ -167,6 +167,20 @@ export default class Jstream<T> implements Iterable<T> {
         );
     }
 
+    public copyWithin(
+        target: number | bigint,
+        start: number | bigint,
+        end?: number | bigint
+    ): Jstream<T> {
+        return new Jstream(() =>
+            this.toArray().copyWithin(
+                Number(target),
+                Number(start),
+                Number(end)
+            )
+        );
+    }
+
     public reduce(
         reducer: (result: General<T>, item: T, index: number) => General<T>
     ): General<T>;
