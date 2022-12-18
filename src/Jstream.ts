@@ -32,6 +32,7 @@
 //                   ▀▀█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▀"
 
 import AsyncJstream from "./AsyncJstream";
+import { nonIteratedCountOrUndefined } from "./privateUtils/data";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
 import {
     ReadonlyStandardCollection,
@@ -232,6 +233,24 @@ export default class Jstream<T> implements Iterable<T> {
         } else {
             return result;
         }
+    }
+
+    public count(): number {
+        const source = this.getSource();
+        const nonIteratedCount = nonIteratedCountOrUndefined(source);
+
+        if (nonIteratedCount !== undefined) {
+            return nonIteratedCount;
+        } else {
+            let count = 0;
+            for (const _ of source) count++;
+            return count;
+        }
+    }
+
+    public nonIteratedCountOrUndefined(): number | undefined {
+        const source = this.getSource();
+        return nonIteratedCountOrUndefined(source);
     }
 
     public toArray(): T[] {

@@ -1,3 +1,4 @@
+import Jstream from "../Jstream";
 import { isAsyncIterable } from "./typeGuards";
 
 /**
@@ -55,4 +56,12 @@ export function toSet<T>(
     } else {
         return new Set(items);
     }
+}
+
+
+export function nonIteratedCountOrUndefined(collection: Iterable<any>): number | undefined {
+    if (collection instanceof Array) return collection.length;
+    if (collection instanceof Set) return collection.size;
+    if (collection instanceof Map) return collection.size;
+    if (collection instanceof Jstream) return collection.nonIteratedCountOrUndefined();
 }

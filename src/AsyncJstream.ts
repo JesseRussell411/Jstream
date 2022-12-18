@@ -1,6 +1,6 @@
 import Jstream from "./Jstream";
-import { toArray } from "./privateUtils/data";
-import { isStandardCollection } from "./privateUtils/typeGuards";
+import { nonIteratedCountOrUndefined, toArray } from "./privateUtils/data";
+import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import { StandardCollection } from "./types/collections";
 import { BreakSignal } from "./types/symbols";
@@ -371,6 +371,28 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             return await finalize(result, i);
         } else {
             return result as F;
+        }
+    }
+
+    public async count(): Promise<number>{
+        const source = await this.getSource();
+
+        if (isIterable(source)){
+            const nonIteratedCount = nonIteratedCountOrUndefined(source);
+            if (nonIteratedCount !== undefined) return nonIteratedCount;
+        }
+
+        let count = 0;
+        for await(const _ of source) count++;
+        return count;
+    }
+
+    public async nonIteratedCountOrUndefined(): Promise<number | undefined> {
+        const source = await this.getSource();
+        if (isIterable(source)){
+            return nonIteratedCountOrUndefined(source);
+        } else {
+            return undefined;
         }
     }
 
