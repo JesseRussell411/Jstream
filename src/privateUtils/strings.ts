@@ -3,7 +3,10 @@ import { isIterable } from "./typeGuards";
 
 export function mkString(collection: Iterable<unknown>): string;
 
-export function mkString(collection: Iterable<unknown>, separator: unknown): string;
+export function mkString(
+    collection: Iterable<unknown>,
+    separator: unknown
+): string;
 
 export function mkString(
     collection: Iterable<unknown>,
@@ -58,12 +61,16 @@ export function mkString(
     if (typeof separator !== "string")
         return mkString(collection, start, `${separator}`, end);
     if (typeof end !== "string")
-        return mkString(collection, `${start}`, separator, `${end}`);
+        return mkString(collection, start, separator, `${end}`);
 
     if (typeof collection === "string" && separator === "") {
         // TODO find out if this is necessary
         if (start === "" && end === "") {
             return collection;
+        } else if (start === "") {
+            return collection + end;
+        } else if (end === "") {
+            return start + collection;
         } else {
             return start + collection + end;
         }
