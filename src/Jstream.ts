@@ -449,9 +449,11 @@ export default class Jstream<T> implements Iterable<T> {
         end?: any
     ): string {
         if (arguments.length === 1) {
-            return mkString(this.getSource(), startOrSeparator);
+            const separator = startOrSeparator;
+            return mkString(this.getSource(), separator);
         } else {
-            return mkString(this.getSource(), startOrSeparator, separator, end);
+            const start = startOrSeparator;
+            return mkString(this.getSource(), start, separator, end);
         }
     }
 

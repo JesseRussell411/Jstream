@@ -51,8 +51,10 @@ export function mkString(
     separator: unknown = "",
     end: unknown = ""
 ): string | Promise<string> {
-    if (arguments.length === 2)
-        return mkString(collection, "", startOrSeparator, "");
+    if (arguments.length === 2) {
+        const separator = startOrSeparator;
+        return mkString(collection, "", separator, "");
+    }
 
     const start = startOrSeparator;
 
