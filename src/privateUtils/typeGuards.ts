@@ -2,17 +2,13 @@ import { AwaitableIterable } from "../types/async";
 import { StandardCollection } from "../types/collections";
 
 export function isAsyncIterable<T>(
-    item: AsyncIterable<T>
-): item is AsyncIterable<T>;
-export function isAsyncIterable(item: any): item is AsyncIterable<unknown>;
-export function isAsyncIterable(item: any): item is AsyncIterable<unknown> {
-    return item?.[Symbol.asyncIterator] instanceof Function;
+    item: AwaitableIterable<T>
+): item is AsyncIterable<T> {
+    return (item as any)?.[Symbol.asyncIterator] instanceof Function;
 }
 
-export function isIterable<T>(item: AwaitableIterable<T>): item is Iterable<T>;
-export function isIterable(item: any): item is Iterable<unknown>;
-export function isIterable(item: any): item is Iterable<unknown> {
-    return item?.[Symbol.iterator] instanceof Function;
+export function isIterable<T>(item: AwaitableIterable<T>): item is Iterable<T> {
+    return (item as any)?.[Symbol.iterator] instanceof Function;
 }
 
 export function isArray<T>(item: AwaitableIterable<T>): item is T[];

@@ -1,52 +1,52 @@
 import { AwaitableIterable } from "../types/async";
 import { isIterable } from "./typeGuards";
 
-export function mkString(collection: Iterable<any>): string;
+export function mkString(collection: Iterable<unknown>): string;
 
-export function mkString(collection: Iterable<any>, separator: any): string;
+export function mkString(collection: Iterable<unknown>, separator: unknown): string;
 
 export function mkString(
-    collection: Iterable<any>,
-    start: any,
-    separator: any,
-    end?: any
+    collection: Iterable<unknown>,
+    start: unknown,
+    separator: unknown,
+    end?: unknown
 ): string;
 
-export function mkString(collection: AsyncIterable<any>): Promise<string>;
+export function mkString(collection: AsyncIterable<unknown>): Promise<string>;
 
 export function mkString(
-    collection: AsyncIterable<any>,
-    separator: any
+    collection: AsyncIterable<unknown>,
+    separator: unknown
 ): Promise<string>;
 
 export function mkString(
-    collection: AsyncIterable<any>,
-    start: any,
-    separator: any,
-    end?: any
+    collection: AsyncIterable<unknown>,
+    start: unknown,
+    separator: unknown,
+    end?: unknown
 ): Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<any>
+    collection: AwaitableIterable<unknown>
 ): string | Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<any>,
-    separator: any
+    collection: AwaitableIterable<unknown>,
+    separator: unknown
 ): string | Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<any>,
-    start: any,
-    separator: any,
-    end?: any
+    collection: AwaitableIterable<unknown>,
+    start: unknown,
+    separator: unknown,
+    end?: unknown
 ): string | Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<any>,
-    startOrSeparator: any = "",
-    separator: any = "",
-    end: any = ""
+    collection: AwaitableIterable<unknown>,
+    startOrSeparator: unknown = "",
+    separator: unknown = "",
+    end: unknown = ""
 ): string | Promise<string> {
     if (arguments.length === 2)
         return mkString(collection, "", startOrSeparator, "");
