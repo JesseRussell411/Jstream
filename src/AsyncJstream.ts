@@ -9,6 +9,7 @@ import {
     requireInteger,
 } from "./privateUtils/errorGuards";
 import { identity } from "./privateUtils/functional";
+import { mkString } from "./privateUtils/strings";
 import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import {
@@ -575,5 +576,20 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public async toJstream(): Promise<Jstream<T | Awaited<T>>> {
         return Jstream.from((await this.toStandardCollection()) as Iterable<T>);
+    }
+
+    public mkString(): Promise<string>;
+    public mkString(separator: any): Promise<string>;
+    public mkString(start: any, separator: any, end?: any): Promise<string>;
+    public async mkString(
+        startOrSeparator?: any,
+        separator?: any,
+        end?: any
+    ): Promise<string> {
+        if (arguments.length === 1) {
+            return await mkString(await this.getSource(), startOrSeparator);
+        } else {
+            return await mkString(await this.getSource(), startOrSeparator, separator, end);
+        }
     }
 }

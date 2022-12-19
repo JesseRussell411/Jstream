@@ -34,6 +34,7 @@
 import AsyncJstream from "./AsyncJstream";
 import { nonIteratedCountOrUndefined, toMap } from "./privateUtils/data";
 import { identity } from "./privateUtils/functional";
+import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
 import {
     AsReadonly,
@@ -437,6 +438,29 @@ export default class Jstream<T> implements Iterable<T> {
 
     public toAsyncJstream(): AsyncJstream<T> {
         return new AsyncJstream(this.getSource, this.properties);
+    }
+
+    public mkString(): string;
+    public mkString(separator: any): string;
+    public mkString(start: any, separator: any, end?: any): string;
+    public mkString(
+        startOrSeparator?: any,
+        separator?: any,
+        end?: any
+    ): string {
+        if (arguments.length === 1) {
+            return mkString(this.getSource(), startOrSeparator);
+        } else {
+            return mkString(this.getSource(), startOrSeparator, separator, end);
+        }
+    }
+
+    public toString(): string {
+        return this.mkString();
+    }
+
+    public toJSON(): readonly T[] {
+        return this.asArray();
     }
 }
 
