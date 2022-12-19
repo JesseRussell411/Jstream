@@ -1,5 +1,9 @@
 import Jstream from "./Jstream";
-import { nonIteratedCountOrUndefined, toArray } from "./privateUtils/data";
+import {
+    nonIteratedCountOrUndefined,
+    toArray,
+    toMap,
+} from "./privateUtils/data";
 import {
     requireGreaterThanZero,
     requireInteger,
@@ -7,9 +11,22 @@ import {
 import { identity } from "./privateUtils/functional";
 import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
-import { StandardCollection } from "./types/collections";
+import {
+    AsReadonly,
+    EntryLikeKey,
+    EntryLikeValue,
+    StandardCollection,
+} from "./types/collections";
 import { BreakSignal } from "./types/symbols";
-import { General } from "./types/utility";
+import {
+    AsMap,
+    AsMapWithKey,
+    AsMapWithValue,
+    General,
+    ToObject,
+    ToObjectWithKey,
+    ToObjectWithValue,
+} from "./types/utility";
 import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -429,6 +446,120 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             }
             return result;
         }
+    }
+
+    public toMap(): Promise<AsMap<Iterable<Awaited<T>>>>;
+
+    public toMap<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<AsMapWithValue<Iterable<Awaited<T>>, Awaited<V>>>;
+
+    public toMap<K>(
+        keySelector: (item: T, index: number) => K
+    ): Promise<AsMapWithKey<Iterable<Awaited<T>>, Awaited<K>>>;
+
+    public toMap<K, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<Map<Awaited<K>, Awaited<V>>>;
+
+    public toMap<
+        K = T extends EntryLikeKey<infer K> ? K : unknown,
+        V = T extends EntryLikeValue<infer V> ? V : unknown
+    >(
+        keySelector?: (item: T, index: number) => K,
+        valueSelector?: (item: T, index: number) => V
+    ): Promise<Map<Awaited<K>, Awaited<V>>>;
+
+    public async toMap(
+        keySelector?: (item: any, index: number) => any,
+        valueSelector?: (item: any, index: number) => any
+    ): Promise<Map<any, any>> {
+        const source = await this.getSource();
+
+        if (
+            keySelector === undefined &&
+            valueSelector === undefined &&
+            this.properties.freshSource &&
+            source instanceof Map
+        ) {
+            return source;
+        } else {
+            return await toMap(source, keySelector, valueSelector);
+        }
+    }
+
+    public asMap(): Promise<AsReadonly<AsMap<Iterable<Awaited<T>>>>>;
+
+    public asMap<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<AsReadonly<AsMapWithValue<Iterable<Awaited<T>>, Awaited<V>>>>;
+
+    public asMap<K>(
+        keySelector: (item: T, index: number) => K
+    ): Promise<AsReadonly<AsMapWithKey<Iterable<Awaited<T>>, Awaited<K>>>>;
+
+    public asMap<K, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<ReadonlyMap<Awaited<K>, Awaited<V>>>;
+
+    public asMap<
+        K = T extends EntryLikeKey<infer K> ? K : unknown,
+        V = T extends EntryLikeValue<infer V> ? V : unknown
+    >(
+        keySelector?: (item: T, index: number) => K,
+        valueSelector?: (item: T, index: number) => V
+    ): Promise<ReadonlyMap<Awaited<K>, Awaited<V>>>;
+
+    public async asMap(
+        keySelector?: (item: any, index: number) => any,
+        valueSelector?: (item: any, index: number) => any
+    ): Promise<AsReadonly<Map<any, any>>> {
+        const source = await this.getSource();
+        if (source instanceof Map) {
+            return source;
+        } else {
+            return await toMap(source, keySelector, valueSelector);
+        }
+    }
+
+    public toObject(): Promise<ToObject<Iterable<T>>>;
+
+    public toObject<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<ToObjectWithValue<Iterable<T>, Awaited<V>>>;
+
+    public toObject<K extends Awaitable<keyof any>>(
+        keySelector: (item: T, index: number) => K
+    ): Promise<ToObjectWithKey<Iterable<T>, Awaited<K>>>;
+
+    public toObject<K extends Awaitable<keyof any>, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): Promise<Record<Awaited<K>, Awaited<V>>>;
+
+    public async toObject(
+        keySelector: (item: any, index: number) => Awaitable<keyof any> = i =>
+            i?.[0],
+        valueSelector: (item: any, index: number) => any = i => i?.[1]
+    ): Promise<Record<keyof any, any>> {
+        const object: Record<keyof any, any> = {};
+
+        let i = 0;
+        for await (const item of this) {
+            const key = await keySelector(item, i);
+            const value = await valueSelector(item, i);
+
+            object[key] = value;
+
+            i++;
+        }
+
+        return object;
     }
 
     public async toStandardCollection(): Promise<

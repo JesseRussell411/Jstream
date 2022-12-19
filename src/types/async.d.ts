@@ -1,4 +1,4 @@
-/** Either a {@link Promise} of the given type or just the given type or a promise chain up to a depth of 8 of type T.*/
+/** Either a {@link Promise} of the given type or just the given type; or a promise chain of the given type up to a depth of 8.*/
 export type Awaitable<T> =
     | T
     | Promise<T>

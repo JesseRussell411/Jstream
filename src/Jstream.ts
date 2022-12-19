@@ -32,15 +32,27 @@
 //                   ▀▀█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▀"
 
 import AsyncJstream from "./AsyncJstream";
-import { nonIteratedCountOrUndefined } from "./privateUtils/data";
+import { nonIteratedCountOrUndefined, toMap } from "./privateUtils/data";
+import { identity } from "./privateUtils/functional";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
 import {
+    AsReadonly,
+    EntryLikeKey,
+    EntryLikeValue,
     ReadonlyStandardCollection,
     StandardCollection,
 } from "./types/collections";
 import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
-import { General } from "./types/utility";
+import {
+    AsMap,
+    AsMapWithKey,
+    AsMapWithValue,
+    General,
+    ToObject,
+    ToObjectWithKey,
+    ToObjectWithValue,
+} from "./types/utility";
 import { multiCompare, reverseOrder } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
@@ -301,6 +313,108 @@ export default class Jstream<T> implements Iterable<T> {
         } else {
             return new Set(source);
         }
+    }
+
+    public toMap(): AsMap<Iterable<T>>;
+
+    public toMap<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): AsMapWithValue<Iterable<T>, V>;
+
+    public toMap<K>(
+        keySelector: (item: T, index: number) => K
+    ): AsMapWithKey<Iterable<T>, K>;
+
+    public toMap<K, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): Map<K, V>;
+
+    public toMap<
+        K = T extends EntryLikeKey<infer K> ? K : unknown,
+        V = T extends EntryLikeValue<infer V> ? V : unknown
+    >(
+        keySelector?: (item: T, index: number) => K,
+        valueSelector?: (item: T, index: number) => V
+    ): Map<K, V>;
+
+    public toMap(
+        keySelector?: (item: any, index: number) => any,
+        valueSelector?: (item: any, index: number) => any
+    ): Map<any, any> {
+        return toMap(this, keySelector, valueSelector);
+    }
+
+    public asMap(): AsReadonly<AsMap<Iterable<T>>>;
+
+    public asMap<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): AsReadonly<AsMapWithValue<Iterable<T>, V>>;
+
+    public asMap<K>(
+        keySelector: (item: T, index: number) => K
+    ): AsReadonly<AsMapWithKey<Iterable<T>, K>>;
+
+    public asMap<K, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): ReadonlyMap<K, V>;
+
+    public asMap<
+        K = T extends EntryLikeKey<infer K> ? K : unknown,
+        V = T extends EntryLikeValue<infer V> ? V : unknown
+    >(
+        keySelector?: (item: T, index: number) => K,
+        valueSelector?: (item: T, index: number) => V
+    ): ReadonlyMap<K, V>;
+
+    public asMap(
+        keySelector?: (item: any, index: number) => any,
+        valueSelector?: (item: any, index: number) => any
+    ): ReadonlyMap<any, any> {
+        const source = this.getSource();
+        if (source instanceof Map) {
+            return source;
+        } else {
+            return toMap(source, keySelector, valueSelector);
+        }
+    }
+
+    public toObject(): ToObject<Iterable<T>>;
+
+    public toObject<V>(
+        keySelector: undefined,
+        valueSelector: (item: T, index: number) => V
+    ): ToObjectWithValue<Iterable<T>, V>;
+
+    public toObject<K extends keyof any>(
+        keySelector: (item: T, index: number) => K
+    ): ToObjectWithKey<Iterable<T>, K>;
+
+    public toObject<K extends keyof any, V>(
+        keySelector: (item: T, index: number) => K,
+        valueSelector: (item: T, index: number) => V
+    ): Record<K, V>;
+
+    public toObject(
+        keySelector: (item: any, index: number) => keyof any = i => i?.[0],
+        valueSelector: (item: any, index: number) => any = i => i?.[1]
+    ): Record<keyof any, any> {
+        const object: Record<keyof any, any> = {};
+
+        let i = 0;
+        for (const item of this) {
+            const key = keySelector(item, i);
+            const value = valueSelector(item, i);
+
+            object[key] = value;
+
+            i++;
+        }
+
+        return object;
     }
 
     public toStandardCollection(): StandardCollection<T> {
