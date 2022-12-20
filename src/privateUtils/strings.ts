@@ -4,45 +4,45 @@ import { isIterable } from "./typeGuards";
 export function mkString(collection: Iterable<unknown>): string;
 
 export function mkString(
-    collection: Iterable<unknown>,
-    separator: unknown
+    collection: Iterable<any>,
+    separator: any
 ): string;
 
 export function mkString(
-    collection: Iterable<unknown>,
-    start: unknown,
-    separator: unknown,
-    end?: unknown
+    collection: Iterable<any>,
+    start: any,
+    separator: any,
+    end?: any
 ): string;
 
-export function mkString(collection: AsyncIterable<unknown>): Promise<string>;
+export function mkString(collection: AsyncIterable<any>): Promise<string>;
 
 export function mkString(
-    collection: AsyncIterable<unknown>,
-    separator: unknown
+    collection: AsyncIterable<any>,
+    separator: any
 ): Promise<string>;
 
 export function mkString(
-    collection: AsyncIterable<unknown>,
-    start: unknown,
-    separator: unknown,
-    end?: unknown
+    collection: AsyncIterable<any>,
+    start: any,
+    separator: any,
+    end?: any
 ): Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<unknown>
+    collection: AwaitableIterable<any>
 ): string | Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<unknown>,
-    separator: unknown
+    collection: AwaitableIterable<any>,
+    separator: any
 ): string | Promise<string>;
 
 export function mkString(
-    collection: AwaitableIterable<unknown>,
-    start: unknown,
-    separator: unknown,
-    end?: unknown
+    collection: AwaitableIterable<any>,
+    start: any,
+    separator: any,
+    end?: any
 ): string | Promise<string>;
 
 export function mkString(
