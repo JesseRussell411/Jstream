@@ -9,6 +9,7 @@ import {
     requireInteger,
 } from "./privateUtils/errorGuards";
 import { identity } from "./privateUtils/functional";
+import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
@@ -73,6 +74,16 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public static of<T>(...items: T[]): AsyncJstream<T> {
         return new AsyncJstream(() => items);
+    }
+
+    public static empty<T>(): AsyncJstream<T> {
+        return this.of<T>();
+    }
+
+    public static fromObject<K extends keyof any, V>(
+        object: Awaitable<Record<K, V>>
+    ): AsyncJstream<[K & (string | symbol), V]> {
+        return new AsyncJstream(async () => getOwnEntries(await object));
     }
 
     public async forEach(
@@ -589,7 +600,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         if (arguments.length === 1) {
             return await mkString(await this.getSource(), startOrSeparator);
         } else {
-            return await mkString(await this.getSource(), startOrSeparator, separator, end);
+            return await mkString(
+                await this.getSource(),
+                startOrSeparator,
+                separator,
+                end
+            );
         }
     }
 }

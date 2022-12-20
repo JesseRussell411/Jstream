@@ -33,7 +33,7 @@
 
 import AsyncJstream from "./AsyncJstream";
 import { nonIteratedCountOrUndefined, toMap } from "./privateUtils/data";
-import { identity } from "./privateUtils/functional";
+import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
 import {
@@ -97,6 +97,12 @@ export default class Jstream<T> implements Iterable<T> {
 
     public static empty<T>(): Jstream<T> {
         return Jstream.of<T>();
+    }
+
+    public static fromObject<K extends keyof any, V>(
+        object: Record<K, V>
+    ): Jstream<[K & (string | symbol), V]> {
+        return new Jstream(() => getOwnEntries(object));
     }
 
     public forEach(
