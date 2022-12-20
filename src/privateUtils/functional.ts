@@ -3,9 +3,14 @@ export function doNothing(): void {
     // doing nothing...
 }
 
-/** Returns the item unchanged and does nothing else. */
+/** @returns The given item. */
 export function identity<T>(item: T): T {
     return item;
+}
+
+/** @returns A function that returns the given item. */
+export function constant<T>(item: T): () => T {
+    return () => item;
 }
 
 /**
