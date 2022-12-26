@@ -1,17 +1,5 @@
-/** Either a {@link Promise} of the given type or just the given type; or a promise chain of the given type up to a depth of 8.*/
-export type Awaitable<T> =
-    | T
-    | Promise<T>
-    | Promise<Promise<T>>
-    | Promise<Promise<Promise<T>>>
-    | Promise<Promise<Promise<Promise<T>>>>
-    | Promise<Promise<Promise<Promise<Promise<T>>>>>
-    | Promise<Promise<Promise<Promise<Promise<Promise<T>>>>>>
-    | Promise<Promise<Promise<Promise<Promise<Promise<Promise<T>>>>>>>
-    | Promise<Promise<Promise<Promise<Promise<Promise<Promise<Promise<T>>>>>>>>;
-
-// * tried this, didn't work ):
-// export type Awaitable<T> = T | Promise<Awaitable<T>>
+/** Either a {@link Promise} of the given type or just the given type. */
+export type Awaitable<T> = Promise<T> | T;
 
 /** Either an {@link Iterable} or an {@link AsyncIterable} */
 export type AwaitableIterable<T> = Iterable<T> | AsyncIterable<T>;

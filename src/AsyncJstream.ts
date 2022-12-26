@@ -1,5 +1,7 @@
 import Jstream from "./Jstream";
 import {
+    asStandardCollection,
+    groupBy,
     nonIteratedCountOrUndefined,
     toArray,
     toMap,
@@ -240,7 +242,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     public groupBy<K, G>(
         keySelector: (item: Awaited<T>, index: number) => K,
         groupSelector?: (group: any[], key: Awaited<K>) => G,
-        valueSelector: (item: Awaited<T>, index: number) => any = i => i
+        valueSelector: (item: Awaited<T>, index: number) => any = identity
     ): AsyncJstream<[Awaited<K>, Awaited<G>]> {
         return new AsyncJstream(async () => {
             // group the items
@@ -272,6 +274,95 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
             return groups;
         });
+    }
+
+    public groupJoin<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelector: (value: Awaited<T>, index: number) => Awaitable<K>,
+        innerKeySelector: (value: Awaited<I>, index: number) => Awaitable<K>,
+        resultSelector: (outer: Awaited<T>, inner: Awaited<I>[]) => R
+    ): AsyncJstream<Awaited<R>>;
+
+    public groupJoin<I, K, R>(
+        inner: AwaitableIterable<I>,
+        resultSelector: (outer: Awaited<T> | Awaited<I>[]) => R,
+        comparison: (outer: Awaited<T>, inner: Awaited<I>) => Awaitable<boolean>
+    ): AsyncJstream<Awaited<R>>;
+
+    public groupJoin<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelectorOrResultSelector:
+            | ((value: Awaited<T>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T> | Awaited<I>[]) => R),
+        innerKeySelectorOrComparison:
+            | ((value: Awaited<I>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T>, inner: Awaited<I>) => Awaitable<boolean>),
+        resultSelector?: (outer: Awaited<T>, inner: Awaited<I>[]) => R
+    ): AsyncJstream<Awaited<R>> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const outerKeySelector = outerKeySelectorOrResultSelector as (
+                value: Awaited<T>,
+                index: number
+            ) => Awaitable<K>;
+            const innerKeySelector = innerKeySelectorOrComparison as (
+                value: Awaited<I>,
+                index: number
+            ) => Awaitable<K>;
+
+            return new AsyncJstream(async function* () {
+                // group inner
+                const innerGrouped = new Map<Awaited<K>, Awaited<I>[]>();
+
+                let i = 0;
+                for await (const innerItem of inner) {
+                    const key = await innerKeySelector(innerItem, i);
+                    const group = innerGrouped.get(key);
+                    if (group === undefined) {
+                        innerGrouped.set(key, [innerItem]);
+                    } else {
+                        group.push(innerItem);
+                    }
+                    i++;
+                }
+
+                // perform join
+                i = 0;
+                for await (const item of self) {
+                    const key = await outerKeySelector(item, i);
+                    const innerGroup = innerGrouped.get(key) ?? [];
+                    yield await resultSelector(item, innerGroup);
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = outerKeySelectorOrResultSelector as (
+                outer: Awaited<T>,
+                inner: Awaited<I>[]
+            ) => R;
+            const comparison = innerKeySelectorOrComparison as (
+                outer: Awaited<T>,
+                inner: Awaited<I>
+            ) => Awaitable<boolean>;
+
+            return new AsyncJstream(async function* () {
+                // cache inner
+                const innerCached = (await asStandardCollection(
+                    inner
+                )) as Iterable<Awaited<I> | I>;
+
+                // perform join
+                for await (const item of self) {
+                    const group: Awaited<I>[] = [];
+                    for await (const innerItem of innerCached) {
+                        if (await comparison(item, innerItem)) {
+                            group.push(innerItem);
+                        }
+                    }
+                    yield await resultSelector(item, group);
+                }
+            });
+        }
     }
 
     /**

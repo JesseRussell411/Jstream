@@ -15,7 +15,7 @@ export function constant<T>(item: T): () => T {
 
 /**
  * Creates a cached version of the given function.
- * 
+ *
  * @returns The cached version of the function. The original function is
  * called once on the first call of the returned function and the result
  * is cached. Subsequent calls return the cached result of the first call
@@ -32,11 +32,11 @@ export function lazy<R>(action: () => R): () => R {
             const result = action();
             supplier = () => result;
             return result;
-        } catch (e) {
+        } catch (error) {
             supplier = () => {
-                throw e;
+                throw error;
             };
-            throw e;
+            throw error;
         }
     };
 
