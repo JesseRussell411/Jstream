@@ -32,7 +32,13 @@
 //                   ▀▀█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▀"
 
 import AsyncJstream from "./AsyncJstream";
-import { nonIteratedCountOrUndefined, toMap } from "./privateUtils/data";
+import {
+    asStandardCollection,
+    groupBy,
+    nonIteratedCountOrUndefined,
+    toMap,
+} from "./privateUtils/data";
+import { identity } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
@@ -198,6 +204,220 @@ export default class Jstream<T> implements Iterable<T> {
                 Number(end)
             )
         );
+    }
+
+    public join<O, K, R>(
+        other: Iterable<O>,
+        keySelector: (item: T, index: number) => K,
+        otherKeySelector: (item: O, index: number) => K,
+        resultSelector: (item: T, otherItem: O) => R
+    ): Jstream<R>;
+
+    public join<O, K, R>(
+        other: Iterable<O>,
+        resultSelector: (item: T, otherItem: O) => R,
+        comparison: (item: T, otherItem: O) => boolean
+    ): Jstream<R>;
+
+    public join<O, K, R>(
+        other: Iterable<O>,
+        keySelectorOrResultSelector:
+            | ((item: T, index: number) => K)
+            | ((item: T, otherItem: O) => R),
+        otherKeySelectorOrComparison:
+            | ((item: O, index: number) => K)
+            | ((item: T, otherItem: O) => boolean),
+        resultSelector?: (item: T, otherItem: O) => R
+    ): Jstream<R> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const keySelector = keySelectorOrResultSelector as (
+                item: T,
+                index: number
+            ) => K;
+            const otherKeySelector = otherKeySelectorOrComparison as (
+                item: O,
+                index: number
+            ) => K;
+            return new Jstream(function* () {
+                const otherIndexed = toMap(other, otherKeySelector, identity);
+
+                let i = 0;
+                for (const item of self) {
+                    const key = keySelector(item, i);
+                    const otherItem = otherIndexed.get(key);
+                    if (otherItem !== undefined) {
+                        yield resultSelector(item, otherItem);
+                    }
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = keySelectorOrResultSelector as (
+                item: T,
+                otherItem: O
+            ) => R;
+            const comparison = otherKeySelectorOrComparison as (
+                item: T,
+                otherItem: O
+            ) => boolean;
+
+            return new Jstream(function* () {
+                const otherCached = asStandardCollection(other) as Iterable<O>;
+
+                let i = 0;
+                for (const item of self) {
+                    for (const otherItem of otherCached) {
+                        if (comparison(item, otherItem)) {
+                            yield resultSelector(item, otherItem);
+                        }
+                    }
+                    i++;
+                }
+            });
+        }
+    }
+
+    public leftJoin<I, K, R>(
+        inner: Iterable<I>,
+        keySelector: (item: T, index: number) => K,
+        innerKeySelector: (item: I, index: number) => K,
+        resultSelector: (item: T, innerItem: I | undefined) => R
+    ): Jstream<R>;
+
+    public leftJoin<I, K, R>(
+        inner: Iterable<I>,
+        resultSelector: (item: T, innerItem: I | undefined) => R,
+        comparison: (item: T, innerItem: I) => boolean
+    ): Jstream<R>;
+
+    public leftJoin<I, K, R>(
+        inner: Iterable<I>,
+        keySelectorOrResultSelector:
+            | ((item: T, index: number) => K)
+            | ((item: T, innerItem: I | undefined) => R),
+        innerKeySelectorOrComparison:
+            | ((item: I, index: number) => K)
+            | ((item: T, innerItem: I) => boolean),
+        resultSelector?: (item: T, innerItem: I | undefined) => R
+    ): Jstream<R> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const keySelector = keySelectorOrResultSelector as (
+                item: T,
+                index: number
+            ) => K;
+            const innerKeySelector = innerKeySelectorOrComparison as (
+                item: I,
+                index: number
+            ) => K;
+            return new Jstream(function* () {
+                const innerIndexed = toMap(inner, innerKeySelector, identity);
+
+                let i = 0;
+                for (const item of self) {
+                    const key = keySelector(item, i);
+                    const innerItem = innerIndexed.get(key);
+                    yield resultSelector(item, innerItem);
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = keySelectorOrResultSelector as (
+                item: T,
+                innerItem: I | undefined
+            ) => R;
+            const comparison = innerKeySelectorOrComparison as (
+                item: T,
+                innerItem: I
+            ) => boolean;
+
+            return new Jstream(function* () {
+                const innerCached = asStandardCollection(inner) as Iterable<I>;
+
+                for (const item of self) {
+                    let innerMatch: I | undefined = undefined;
+                    for (const innerItem of innerCached) {
+                        if (comparison(item, innerItem)) {
+                            innerMatch = innerItem;
+                            break;
+                        }
+                    }
+                    yield resultSelector(item, innerMatch);
+                }
+            });
+        }
+    }
+
+    public groupJoin<I, K, R>(
+        inner: Iterable<I>,
+        keySelector: (item: T, index: number) => K,
+        innerKeySelector: (item: I, index: number) => K,
+        resultSelector: (item: T, innerItem: I[]) => R
+    ): Jstream<R>;
+
+    public groupJoin<I, K, R>(
+        inner: Iterable<I>,
+        resultSelector: (item: T, innerItem: I[]) => R,
+        comparison: (item: T, innerItem: I) => boolean
+    ): Jstream<R>;
+
+    public groupJoin<I, K, R>(
+        inner: Iterable<I>,
+        keySelectorOrResultSelector:
+            | ((item: T, index: number) => K)
+            | ((item: T, innerItem: I[]) => R),
+        innerKeySelectorOrComparison:
+            | ((item: I, index: number) => K)
+            | ((item: T, innerItem: I) => boolean),
+        resultSelector?: (item: T, innerItem: I[]) => R
+    ): Jstream<R> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const keySelector = keySelectorOrResultSelector as (
+                item: T,
+                index: number
+            ) => K;
+            const innerKeySelector = innerKeySelectorOrComparison as (
+                item: I,
+                index: number
+            ) => K;
+
+            return new Jstream(function* () {
+                const innerGrouped = groupBy(inner, innerKeySelector);
+
+                let i = 0;
+                for (const item of self) {
+                    const key = keySelector(item, i);
+                    const innerGroup = innerGrouped.get(key) ?? [];
+                    yield resultSelector(item, innerGroup);
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = keySelectorOrResultSelector as (
+                item: T,
+                innerItem: I[]
+            ) => R;
+            const comparison = innerKeySelectorOrComparison as (
+                item: T,
+                innerItem: I
+            ) => boolean;
+
+            return new Jstream(function* () {
+                const innerCached = asStandardCollection(inner) as Iterable<I>;
+
+                for (const item of self) {
+                    let innerGroup: I[] = []
+                    for (const innerItem of innerCached) {
+                        if (comparison(item, innerItem)) {
+                            innerGroup.push(innerItem);
+                        }
+                    }
+                    yield resultSelector(item, innerGroup);
+                }
+            });
+        }
     }
 
     public reduce(

@@ -276,6 +276,179 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
+    public join<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelector: (value: Awaited<T>, index: number) => Awaitable<K>,
+        innerKeySelector: (value: Awaited<I>, index: number) => Awaitable<K>,
+        resultSelector: (outer: Awaited<T>, inner: Awaited<I>) => R
+    ): AsyncJstream<Awaited<R>>;
+
+    public join<I, R>(
+        inner: AwaitableIterable<I>,
+        resultSelector: (outer: Awaited<T>, inner: Awaited<I> | undefined) => R,
+        comparator: (outer: Awaited<T>, inner: Awaited<I>) => Awaitable<boolean>
+    ): AsyncJstream<Awaited<R>>;
+
+    public join<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelectorOrResultSelector:
+            | ((value: Awaited<T>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T> | Awaited<I>[]) => R),
+        innerKeySelectorOrComparison:
+            | ((value: Awaited<I>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T>, inner: Awaited<I>) => Awaitable<boolean>),
+        resultSelector?: (outer: Awaited<T>, inner: Awaited<I>) => R
+    ): AsyncJstream<Awaited<R>> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const outerKeySelector = outerKeySelectorOrResultSelector as (
+                value: Awaited<T>,
+                index: number
+            ) => Awaitable<K>;
+            const innerKeySelector = innerKeySelectorOrComparison as (
+                value: Awaited<I>,
+                index: number
+            ) => Awaitable<K>;
+
+            return new AsyncJstream(async function* () {
+                // group inner
+                const innerIndexed = new Map<Awaited<K>, Awaited<I>>();
+
+                let i = 0;
+                for await (const innerItem of inner) {
+                    const key = await innerKeySelector(innerItem, i);
+                    innerIndexed.set(key, innerItem);
+                    i++;
+                }
+
+                // perform join
+                i = 0;
+                for await (const item of self) {
+                    const key = await outerKeySelector(item, i);
+                    const innerItem = innerIndexed.get(key);
+                    if (innerItem !== undefined) {
+                        yield await resultSelector(item, innerItem);
+                    }
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = outerKeySelectorOrResultSelector as (
+                outer: Awaited<T>,
+                inner: Awaited<I> | undefined
+            ) => R;
+            const comparison = innerKeySelectorOrComparison as (
+                outer: Awaited<T>,
+                inner: Awaited<I>
+            ) => Awaitable<boolean>;
+
+            return new AsyncJstream(async function* () {
+                // cache inner
+                const innerCached = (await asStandardCollection(
+                    inner
+                )) as Iterable<Awaited<I> | I>;
+
+                // perform join
+                for await (const item of self) {
+                    for await (const innerItem of innerCached) {
+                        if (await comparison(item, innerItem)) {
+                            yield resultSelector(item, innerItem);
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    public leftJoin<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelector: (value: Awaited<T>, index: number) => Awaitable<K>,
+        innerKeySelector: (value: Awaited<I>, index: number) => Awaitable<K>,
+        resultSelector: (outer: Awaited<T>, inner: Awaited<I> | undefined) => R
+    ): AsyncJstream<Awaited<R>>;
+
+    public leftJoin<I, R>(
+        inner: AwaitableIterable<I>,
+        resultSelector: (outer: Awaited<T>, inner: Awaited<I> | undefined) => R,
+        comparator: (
+            outer: Awaited<T>,
+            inner: Awaited<I> | undefined
+        ) => Awaitable<boolean>
+    ): AsyncJstream<Awaited<R>>;
+
+    public leftJoin<I, K, R>(
+        inner: AwaitableIterable<I>,
+        outerKeySelectorOrResultSelector:
+            | ((value: Awaited<T>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T> | Awaited<I>[]) => R),
+        innerKeySelectorOrComparison:
+            | ((value: Awaited<I>, index: number) => Awaitable<K>)
+            | ((outer: Awaited<T>, inner: Awaited<I>) => Awaitable<boolean>),
+        resultSelector?: (outer: Awaited<T>, inner: Awaited<I> | undefined) => R
+    ): AsyncJstream<Awaited<R>> {
+        const self = this;
+        if (resultSelector !== undefined) {
+            const outerKeySelector = outerKeySelectorOrResultSelector as (
+                value: Awaited<T>,
+                index: number
+            ) => Awaitable<K>;
+            const innerKeySelector = innerKeySelectorOrComparison as (
+                value: Awaited<I>,
+                index: number
+            ) => Awaitable<K>;
+
+            return new AsyncJstream(async function* () {
+                // group inner
+                const innerIndexed = new Map<Awaited<K>, Awaited<I>>();
+
+                let i = 0;
+                for await (const innerItem of inner) {
+                    const key = await innerKeySelector(innerItem, i);
+                    innerIndexed.set(key, innerItem);
+                    i++;
+                }
+
+                // perform join
+                i = 0;
+                for await (const item of self) {
+                    const key = await outerKeySelector(item, i);
+                    const innerItem = innerIndexed.get(key);
+                    yield await resultSelector(item, innerItem);
+                    i++;
+                }
+            });
+        } else {
+            const resultSelector = outerKeySelectorOrResultSelector as (
+                outer: Awaited<T>,
+                inner: Awaited<I> | undefined
+            ) => R;
+            const comparison = innerKeySelectorOrComparison as (
+                outer: Awaited<T>,
+                inner: Awaited<I>
+            ) => Awaitable<boolean>;
+
+            return new AsyncJstream(async function* () {
+                // cache inner
+                const innerCached = (await asStandardCollection(
+                    inner
+                )) as Iterable<Awaited<I> | I>;
+
+                // perform join
+                for await (const item of self) {
+                    let innerMatch: Awaited<I> | undefined = undefined;
+                    for await (const innerItem of innerCached) {
+                        if (await comparison(item, innerItem)) {
+                            innerMatch = innerItem;
+                            break;
+                        }
+                    }
+                    yield await resultSelector(item, innerMatch);
+                }
+            });
+        }
+    }
+
     public groupJoin<I, K, R>(
         inner: AwaitableIterable<I>,
         outerKeySelector: (value: Awaited<T>, index: number) => Awaitable<K>,
