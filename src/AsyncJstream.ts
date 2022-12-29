@@ -1,7 +1,9 @@
+import { isAbsolute } from "path";
 import Jstream from "./Jstream";
 import {
     asStandardCollection,
     groupBy,
+    memoizeIterable,
     nonIteratedCountOrUndefined,
     toArray,
     toMap,
@@ -13,7 +15,11 @@ import {
 import { identity } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
-import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
+import {
+    isArray,
+    isIterable,
+    isStandardCollection,
+} from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import {
     AsReadonly,
@@ -215,6 +221,45 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         return new AsyncJstream(async function* () {
             yield* self;
             yield* await items;
+        });
+    }
+
+    public reverse(): AsyncJstream<Awaited<T> | T> {
+        return new AsyncJstream(async () => {
+            const source = await this.getSource();
+
+            if (!this.properties.freshSource && isArray(source)) {
+                return (function* () {
+                    for (let i = source.length - 1; i >= 0; i--) {
+                        yield source[i]!;
+                    }
+                })();
+            } else {
+                const array =
+                    this.properties.freshSource && isArray(source)
+                        ? source
+                        : await toArray(source);
+
+                array.reverse();
+                return array;
+            }
+        });
+    }
+
+    public repeat(times: number | bigint): AsyncJstream<Awaited<T>> {
+        requireInteger(times);
+
+        if (times === 0) return AsyncJstream.empty();
+        if (times < 0) return this.reverse().repeat(-times);
+
+        const self = this;
+        return new AsyncJstream(async function* () {
+            const memoized = memoizeIterable(self);
+            for (let i = 0n; i < times; i++) {
+                for await (const item of memoized) {
+                    yield item;
+                }
+            }
         });
     }
 

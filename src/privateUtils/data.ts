@@ -4,11 +4,69 @@ import {
     EntryLikeKey,
     EntryLikeValue,
     ReadonlyStandardCollection,
-    StandardCollection,
 } from "../types/collections";
 import { AsMap, AsMapWithKey, AsMapWithValue } from "../types/utility";
 import { identity } from "./functional";
 import { isIterable, isStandardCollection } from "./typeGuards";
+
+export function memoizeIterable<T>(iterable: Iterable<T>): Iterable<T>;
+export function memoizeIterable<T>(
+    iterable: AsyncIterable<T>
+): AsyncIterable<T>;
+export function memoizeIterable<T>(
+    iterable: AwaitableIterable<T>
+): AwaitableIterable<T> {
+    if (isIterable(iterable)) {
+        const cache: T[] = [];
+        let iterator: Iterator<T> | undefined = undefined;
+        return {
+            *[Symbol.iterator]() {
+                if (iterator === undefined) {
+                    iterator = iterable[Symbol.iterator]();
+                }
+
+                let i = 0;
+
+                while (true) {
+                    if (i < cache.length) {
+                        yield cache[i]!;
+                    } else {
+                        const next = iterator.next();
+                        if (next.done) break;
+                        const value = next.value;
+                        cache.push(value);
+                        yield value;
+                    }
+                    i++;
+                }
+            },
+        };
+    } else {
+        const cache: Awaited<T>[] = [];
+        let iterator: AsyncIterator<T> | undefined = undefined;
+
+        return {
+            async *[Symbol.asyncIterator]() {
+                if (iterator === undefined) {
+                    iterator = iterable[Symbol.asyncIterator]();
+                }
+
+                let i = 0;
+                while (true) {
+                    if (i < cache.length) {
+                        yield cache[i]!;
+                    } else {
+                        const next = await iterator.next();
+                        if (next.done) break;
+                        const value = await next.value;
+                        cache.push(value);
+                        yield value;
+                    }
+                }
+            },
+        };
+    }
+}
 
 /**
  * In-place Fisher-Yates shuffle of the given array.

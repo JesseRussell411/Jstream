@@ -16,3 +16,9 @@ export function requireGreaterThanZero(num: number | bigint): number | bigint {
     if (num > 0) return num;
     throw new Error("expected a number greater than zero but got " + num);
 }
+
+export function requireNonZero(num: number | bigint): number | bigint {
+    if (num === 0 || num === 0n)
+        throw new Error("expected non zero but got " + num);
+    return num;
+}

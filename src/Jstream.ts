@@ -35,9 +35,15 @@ import AsyncJstream from "./AsyncJstream";
 import {
     asStandardCollection,
     groupBy,
+    memoizeIterable,
     nonIteratedCountOrUndefined,
     toMap,
 } from "./privateUtils/data";
+import {
+    requireGreaterThanZero,
+    requireInteger,
+    requireNonZero,
+} from "./privateUtils/errorGuards";
 import { identity } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
@@ -65,6 +71,7 @@ import { breakSignal } from "./utils/symbols";
 
 export type JstreamProperties<_> = Readonly<
     Partial<{
+        /** Each call to the source getter produces a new copy of the source. */
         freshSource: boolean;
     }>
 >;
@@ -190,6 +197,49 @@ export default class Jstream<T> implements Iterable<T> {
             [reverseOrder(order)],
             this.properties
         );
+    }
+
+    public reverse(): Jstream<T> {
+        return new Jstream(
+            () => {
+                const source = this.getSource();
+
+                if (!this.properties.freshSource && isArray(source)) {
+                    return (function* () {
+                        for (let i = source.length - 1; i >= 0; i--) {
+                            yield source[i]!;
+                        }
+                    })();
+                } else {
+                    const array =
+                        this.properties.freshSource && isArray(source)
+                            ? source
+                            : [...source];
+
+                    array.reverse();
+                    return array;
+                }
+            },
+            { freshSource: true }
+        );
+    }
+
+    public repeat(times: number | bigint): Jstream<T> {
+        requireInteger(times);
+
+        if (times === 0) return Jstream.empty();
+        if (times < 0) return this.reverse().repeat(-times);
+
+        const self = this;
+
+        return new Jstream(function* () {
+            const memoized = memoizeIterable(self);
+            for (let i = 0n; i < times; i++) {
+                for (const item of memoized) {
+                    yield item;
+                }
+            }
+        });
     }
 
     public copyWithin(
@@ -408,7 +458,7 @@ export default class Jstream<T> implements Iterable<T> {
                 const innerCached = asStandardCollection(inner) as Iterable<I>;
 
                 for (const item of self) {
-                    let innerGroup: I[] = []
+                    let innerGroup: I[] = [];
                     for (const innerItem of innerCached) {
                         if (comparison(item, innerItem)) {
                             innerGroup.push(innerItem);
