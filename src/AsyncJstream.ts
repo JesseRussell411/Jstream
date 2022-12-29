@@ -1,4 +1,4 @@
-import { isAbsolute } from "path";
+import { isAbsolute, sep } from "path";
 import Jstream from "./Jstream";
 import {
     asStandardCollection,
@@ -32,7 +32,9 @@ import {
     AsMap,
     AsMapWithKey,
     AsMapWithValue,
+    Defined,
     General,
+    NonNull,
     ToObject,
     ToObjectWithKey,
     ToObjectWithValue,
@@ -261,6 +263,24 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 }
             }
         });
+    }
+
+    public defined(): AsyncJstream<Awaited<T> & ({} | null)> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            for await (const item of self) {
+                if (item !== undefined) yield item;
+            }
+        }) as any;
+    }
+
+    public nonNull(): AsyncJstream<Awaited<T> & ({} | undefined)> {
+        const self = this;
+        return new AsyncJstream(async function* () {
+            for await (const item of self) {
+                if (item !== null) yield item;
+            }
+        }) as any;
     }
 
     public groupBy<K>(
@@ -907,11 +927,13 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         end?: any
     ): Promise<string> {
         if (arguments.length === 1) {
-            return await mkString(await this.getSource(), startOrSeparator);
+            const separator = startOrSeparator;
+            return await mkString(await this.getSource(), separator);
         } else {
+            const start = startOrSeparator;
             return await mkString(
                 await this.getSource(),
-                startOrSeparator,
+                start,
                 separator,
                 end
             );

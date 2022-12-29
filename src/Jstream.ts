@@ -242,6 +242,24 @@ export default class Jstream<T> implements Iterable<T> {
         });
     }
 
+    public defined(): Jstream<T & ({} | null)> {
+        const self = this;
+        return new Jstream(function* () {
+            for (const item of self) {
+                if (item !== undefined) yield item;
+            }
+        });
+    }
+
+    public nonNull(): Jstream<T & ({} | undefined)> {
+        const self = this;
+        return new Jstream(function* () {
+            for (const item of self) {
+                if (item !== null) yield item;
+            }
+        });
+    }
+
     public copyWithin(
         target: number | bigint,
         start: number | bigint,

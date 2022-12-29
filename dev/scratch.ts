@@ -1,4 +1,5 @@
 import AsyncJStream from "../src/AsyncJstream";
+import Jstream from "../src/Jstream";
 
 async function main() {
     console.log(
@@ -8,8 +9,7 @@ async function main() {
             (r, c) => r / c
         )
     );
-    console.log(
-        await AsyncJStream.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).shuffle().toArray()
-    );
+
+    const testtest = Jstream.of(undefined, 3, undefined, 4, 7, undefined, null, 7, undefined, 8, null).defined().nonNull()
 }
 main();
