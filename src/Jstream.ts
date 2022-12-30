@@ -33,6 +33,7 @@
 
 import AsyncJstream from "./AsyncJstream";
 import { nonIteratedCountOrUndefined, toMap } from "./privateUtils/data";
+import { getOrCall } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
@@ -440,6 +441,47 @@ export default class Jstream<T> implements Iterable<T> {
         } else {
             return [...source];
         }
+    }
+
+    public find(predicate: (item: T, index: number) => boolean): T | undefined;
+
+    public find<A>(
+        predicate: (item: T, index: number) => boolean,
+        alternative: A | (() => A)
+    ): T | A;
+
+    public find(
+        predicate: (item: T, index: number) => boolean,
+        alternative?: any
+    ): any {
+        let i = 0;
+        for (const item of this) {
+            if (predicate(item, i)) return item;
+            i++;
+        }
+        return getOrCall(alternative);
+    }
+
+    public findLast(
+        predicate: (item: T, index: number) => boolean
+    ): T | undefined;
+
+    public findLast<A>(
+        predicate: (item: T, index: number) => boolean,
+        alternative: A | (() => A)
+    ): T | A;
+
+    public findLast(
+        predicate: (item: T, index: number) => boolean,
+        alternative?: any
+    ): any {
+        let i = 0;
+        let result = getOrCall(alternative);
+        for (const item of this) {
+            if (predicate(item, i)) result = item;
+            i++;
+        }
+        return result;
     }
 
     public toAsyncJstream(): AsyncJstream<T> {

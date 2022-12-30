@@ -15,7 +15,7 @@ export function constant<T>(item: T): () => T {
 
 /**
  * Creates a cached version of the given function.
- * 
+ *
  * @returns The cached version of the function. The original function is
  * called once on the first call of the returned function and the result
  * is cached. Subsequent calls return the cached result of the first call
@@ -41,4 +41,15 @@ export function lazy<R>(action: () => R): () => R {
     };
 
     return () => supplier();
+}
+
+export function getOrCall<T>(itemOrGetter: T | (() => T)): T;
+export function getOrCall<T>(itemOrGetter?: undefined): undefined;
+export function getOrCall<T>(itemOrGetter?: T | (() => T)): T | undefined;
+export function getOrCall<T>(itemOrGetter: T | (() => T)): T {
+    if (itemOrGetter instanceof Function) {
+        return itemOrGetter();
+    } else {
+        return itemOrGetter;
+    }
 }

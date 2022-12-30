@@ -8,7 +8,7 @@ import {
     requireGreaterThanZero,
     requireInteger,
 } from "./privateUtils/errorGuards";
-import { identity } from "./privateUtils/functional";
+import { getOrCall, identity } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isIterable, isStandardCollection } from "./privateUtils/typeGuards";
@@ -583,6 +583,49 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         } else {
             return await toArray(source);
         }
+    }
+
+    public find(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<Awaited<T> | undefined>;
+
+    public find<A>(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>,
+        alternative: A | (() => A)
+    ): Promise<Awaited<T> | Awaited<A>>;
+
+    public async find(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>,
+        alternative?: any
+    ): Promise<any> {
+        let i = 0;
+        for await (const item of this) {
+            if (await predicate(item, i)) return item;
+            i++;
+        }
+        return await getOrCall(alternative);
+    }
+
+    public findLast(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<Awaited<T> | undefined>;
+
+    public findLast<A>(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>,
+        alternative: A | (() => A)
+    ): Promise<Awaited<T> | Awaited<A>>;
+
+    public async findLast(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>,
+        alternative?: any
+    ): Promise<any> {
+        let i = 0;
+        let result = getOrCall(alternative);
+        for await (const item of this) {
+            if (await predicate(item, i)) result = item;
+            i++;
+        }
+        return result;
     }
 
     public async toJstream(): Promise<Jstream<T | Awaited<T>>> {
