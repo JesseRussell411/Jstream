@@ -35,12 +35,16 @@ import AsyncJstream from "./AsyncJstream";
 import {
     asStandardCollection,
     groupBy,
-    memoizeIterable, nonIteratedCountOrUndefined, toMap
+    memoizeIterable,
+    nonIteratedCountOrUndefined,
+    toMap,
 } from "./privateUtils/data";
+import { requireInteger } from "./privateUtils/errorGuards";
 import {
-    requireInteger
-} from "./privateUtils/errorGuards";
-import { getOrCall, identity } from "./privateUtils/functional";
+    returns,
+    getOrCall,
+    identity,
+} from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
@@ -49,7 +53,7 @@ import {
     EntryLikeKey,
     EntryLikeValue,
     ReadonlyStandardCollection,
-    StandardCollection
+    StandardCollection,
 } from "./types/collections";
 import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
@@ -60,7 +64,7 @@ import {
     General,
     ToObject,
     ToObjectWithKey,
-    ToObjectWithValue
+    ToObjectWithValue,
 } from "./types/utility";
 import { multiCompare, reverseOrder } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
@@ -765,6 +769,30 @@ export default class Jstream<T> implements Iterable<T> {
             i++;
         }
         return result;
+    }
+
+    public some(
+        predicate: (item: T, index: number) => boolean = returns(true)
+    ): boolean {
+        let i = 0;
+        for (const item of this) {
+            if (predicate(item, i)) return true;
+        }
+        return false;
+    }
+
+    public none(
+        predicate: (item: T, index: number) => boolean = returns(true)
+    ): boolean {
+        return !this.some(predicate);
+    }
+
+    public every(predicate: (item: T, index: number) => boolean): boolean {
+        let i = 0;
+        for (const item of this) {
+            if (!predicate(item, i)) return false;
+        }
+        return true;
     }
 
     public toAsyncJstream(): AsyncJstream<T> {

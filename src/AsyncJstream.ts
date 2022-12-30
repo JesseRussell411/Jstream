@@ -12,7 +12,7 @@ import {
     requireGreaterThanZero,
     requireInteger,
 } from "./privateUtils/errorGuards";
-import { getOrCall, identity } from "./privateUtils/functional";
+import { getOrCall, identity, returns } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import {
@@ -618,13 +618,34 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         predicate: (
             item: Awaited<T>,
             index: number
-        ) => Awaitable<boolean> = () => true
+        ) => Awaitable<boolean> = returns(true)
     ): Promise<boolean> {
         let i = 0;
         for await (const item of this) {
-            if (await predicate(item, i++)) return true;
+            if (await predicate(item, i)) return true;
+            i++;
         }
         return false;
+    }
+
+    /**
+     * @returns Whether the predicate returns true for none of the items in the {@link AsyncJstream}.
+     * @param predicate
+     */
+    public async none(
+        predicate: (item: Awaited<T>, index: number) => Awaitable<boolean>
+    ): Promise<boolean>;
+
+    /** @returns Whether the {@link AsyncJstream} is empty. */
+    public async none(): Promise<boolean>;
+
+    public async none(
+        predicate: (
+            item: Awaited<T>,
+            index: number
+        ) => Awaitable<boolean> = returns(true)
+    ): Promise<boolean> {
+        return !(await this.some(predicate));
     }
 
     /**
@@ -636,7 +657,8 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     ): Promise<boolean> {
         let i = 0;
         for await (const item of this) {
-            if (!(await predicate(item, i++))) return false;
+            if (!(await predicate(item, i))) return false;
+            i++;
         }
         return true;
     }

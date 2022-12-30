@@ -9,7 +9,7 @@ export function identity<T>(item: T): T {
 }
 
 /** @returns A function that returns the given item. */
-export function constant<T>(item: T): () => T {
+export function returns<T>(item: T): () => T {
     return () => item;
 }
 
