@@ -1,8 +1,72 @@
 import Jstream from "../Jstream";
 import { Awaitable, AwaitableIterable } from "../types/async";
-import { EntryLike, EntryLikeKey, EntryLikeValue } from "../types/collections";
+import {
+    EntryLikeKey,
+    EntryLikeValue,
+    ReadonlyStandardCollection,
+} from "../types/collections";
 import { AsMap, AsMapWithKey, AsMapWithValue } from "../types/utility";
-import { isAsyncIterable } from "./typeGuards";
+import { identity } from "./functional";
+import { isIterable, isStandardCollection } from "./typeGuards";
+
+export function memoizeIterable<T>(iterable: Iterable<T>): Iterable<T>;
+export function memoizeIterable<T>(
+    iterable: AsyncIterable<T>
+): AsyncIterable<T>;
+export function memoizeIterable<T>(
+    iterable: AwaitableIterable<T>
+): AwaitableIterable<T> {
+    if (isIterable(iterable)) {
+        const cache: T[] = [];
+        let iterator: Iterator<T> | undefined = undefined;
+        return {
+            *[Symbol.iterator]() {
+                if (iterator === undefined) {
+                    iterator = iterable[Symbol.iterator]();
+                }
+
+                let i = 0;
+
+                while (true) {
+                    if (i < cache.length) {
+                        yield cache[i]!;
+                    } else {
+                        const next = iterator.next();
+                        if (next.done) break;
+                        const value = next.value;
+                        cache.push(value);
+                        yield value;
+                    }
+                    i++;
+                }
+            },
+        };
+    } else {
+        const cache: Awaited<T>[] = [];
+        let iterator: AsyncIterator<T> | undefined = undefined;
+
+        return {
+            async *[Symbol.asyncIterator]() {
+                if (iterator === undefined) {
+                    iterator = iterable[Symbol.asyncIterator]();
+                }
+
+                let i = 0;
+                while (true) {
+                    if (i < cache.length) {
+                        yield cache[i]!;
+                    } else {
+                        const next = await iterator.next();
+                        if (next.done) break;
+                        const value = await next.value;
+                        cache.push(value);
+                        yield value;
+                    }
+                }
+            },
+        };
+    }
+}
 
 /**
  * In-place Fisher-Yates shuffle of the given array.
@@ -17,16 +81,18 @@ export function fisherYatesShuffle(array: any[]) {
     }
 }
 
-export function toArray<T>(items: AsyncIterable<T>): Promise<Awaited<T>[]>;
 export function toArray<T>(items: Iterable<T>): T[];
+export function toArray<T>(items: AsyncIterable<T>): Promise<Awaited<T>[]>;
 export function toArray<T>(
-    items: Iterable<T> | AsyncIterable<T>
+    items: AwaitableIterable<T>
 ): T[] | Promise<Awaited<T>[]>;
 
 export function toArray<T>(
-    items: Iterable<T> | AsyncIterable<T>
+    items: AwaitableIterable<T>
 ): T[] | Promise<Awaited<T>[]> {
-    if (isAsyncIterable(items)) {
+    if (isIterable(items)) {
+        return [...items];
+    } else {
         return (async () => {
             const arr: Awaited<T>[] = [];
             for await (const item of items) {
@@ -34,21 +100,21 @@ export function toArray<T>(
             }
             return arr;
         })();
-    } else {
-        return [...items];
     }
 }
 
-export function toSet<T>(items: AsyncIterable<T>): Promise<Set<Awaited<T>>>;
 export function toSet<T>(items: Iterable<T>): Set<T>;
+export function toSet<T>(items: AsyncIterable<T>): Promise<Set<Awaited<T>>>;
 export function toSet<T>(
-    items: Iterable<T> | AsyncIterable<T>
+    items: AwaitableIterable<T>
 ): Set<T> | Promise<Set<Awaited<T>>>;
 
 export function toSet<T>(
-    items: Iterable<T> | AsyncIterable<T>
+    items: AwaitableIterable<T>
 ): Set<T> | Promise<Set<Awaited<T>>> {
-    if (isAsyncIterable(items)) {
+    if (isIterable(items)) {
+        return new Set(items);
+    } else {
         return (async () => {
             const arr = new Set<Awaited<T>>();
             for await (const item of items) {
@@ -56,8 +122,6 @@ export function toSet<T>(
             }
             return arr;
         })();
-    } else {
-        return new Set(items);
     }
 }
 
@@ -157,7 +221,21 @@ export function toMap(
     keySelector: (item: any, index: number) => any = i => i?.[0],
     valueSelector: (item: any, index: number) => any = i => i?.[1]
 ): Map<any, any> | Promise<Map<any, any>> {
-    if (isAsyncIterable(collection)) {
+    if (isIterable(collection)) {
+        const map = new Map<any, any>();
+
+        let i = 0;
+        for (const item of collection) {
+            const key = keySelector(item, i);
+            const value = valueSelector(item, i);
+
+            map.set(key, value);
+
+            i++;
+        }
+
+        return map;
+    } else {
         return (async () => {
             const map = new Map<any, any>();
 
@@ -173,20 +251,155 @@ export function toMap(
 
             return map;
         })();
-    } else {
-        const map = new Map<any, any>();
+    }
+}
 
-        let i = 0;
+export function asStandardCollection<T>(
+    items: Iterable<T>
+): ReadonlyStandardCollection<T>;
+export function asStandardCollection<T>(
+    items: AsyncIterable<T>
+): Promise<ReadonlyStandardCollection<T>>;
+export function asStandardCollection<T>(
+    items: AwaitableIterable<T>
+):
+    | ReadonlyStandardCollection<T>
+    | Promise<ReadonlyStandardCollection<Awaited<T>>>;
+
+export function asStandardCollection<T>(
+    items: AwaitableIterable<T>
+):
+    | ReadonlyStandardCollection<T>
+    | Promise<ReadonlyStandardCollection<Awaited<T>>> {
+    if (isStandardCollection(items)) {
+        return items;
+    }
+    if (isIterable(items)) {
+        return toArray;
+    } else {
+        return (async () => {
+            const arr = new Set<Awaited<T>>();
+            for await (const item of items) {
+                arr.add(item);
+            }
+            return arr;
+        })();
+    }
+}
+
+export function groupBy<T, K, G, V>(
+    collection: Iterable<T>,
+    keySelector: (item: T, index: number) => K,
+    groupSelector: (group: V[], key: K) => G,
+    valueSelector: (item: T, index: number) => V
+): Map<K, G>;
+
+export function groupBy<T, K, G>(
+    collection: Iterable<T>,
+    keySelector: (item: T, index: number) => K,
+    groupSelector: (group: T[], key: K) => G
+): Map<K, G>;
+
+export function groupBy<T, K, V>(
+    collection: Iterable<T>,
+    keySelector: (item: T, index: number) => K,
+    groupSelector: undefined,
+    valueSelector: (item: T, index: number) => V
+): Map<K, V[]>;
+
+export function groupBy<T, K, V>(
+    collection: Iterable<T>,
+    keySelector: (item: T, index: number) => K
+): Map<K, T[]>;
+
+export function groupBy<T, K, G, V>(
+    collection: AsyncIterable<T>,
+    keySelector: (item: Awaited<T>, index: number) => K,
+    groupSelector: (group: Awaited<V>[], key: Awaited<K>) => G,
+    valueSelector: (item: Awaited<T>, index: number) => V
+): Promise<Map<Awaited<K>, Awaited<G>>>;
+
+export function groupBy<T, K, G>(
+    collection: AsyncIterable<T>,
+    keySelector: (item: Awaited<T>, index: number) => K,
+    groupSelector: (group: Awaited<T>[], key: Awaited<K>) => G
+): Promise<Map<Awaited<K>, Awaited<G>>>;
+
+export function groupBy<T, K, V>(
+    collection: AsyncIterable<T>,
+    keySelector: (item: Awaited<T>, index: number) => K,
+    groupSelector: undefined,
+    valueSelector: (item: Awaited<T>, index: number) => V
+): Promise<Map<Awaited<K>, Awaited<V>[]>>;
+
+export function groupBy<T, K>(
+    collection: AsyncIterable<T>,
+    keySelector: (item: Awaited<T>, index: number) => K
+): Promise<Map<Awaited<K>, Awaited<T>[]>>;
+
+export function groupBy(
+    collection: AwaitableIterable<any>,
+    keySelector: (item: any, index: number) => any,
+    groupSelector?: (group: any[], key: any) => any,
+    valueSelector?: (item: any, index: number) => any
+): Awaitable<Map<any, any>>;
+
+export function groupBy(
+    collection: AwaitableIterable<any>,
+    keySelector: (item: any, index: number) => any,
+    groupSelector?: (group: any[], key: any) => any,
+    valueSelector: (item: any, index: number) => any = identity
+): Awaitable<Map<any, any>> {
+    const groups = new Map<any, any>();
+    let i = 0;
+    if (isIterable(collection)) {
         for (const item of collection) {
             const key = keySelector(item, i);
             const value = valueSelector(item, i);
+            const group = groups.get(key);
 
-            map.set(key, value);
-
+            if (group !== undefined) {
+                group.push(value);
+            } else {
+                groups.set(key, [value]);
+            }
             i++;
         }
 
-        return map;
+        if (groupSelector !== undefined) {
+            for (const entry of groups) {
+                const key = entry[0];
+                const group = entry[1];
+                groups.set(key, groupSelector(group, key));
+            }
+        }
+
+        return groups;
+    } else {
+        return (async () => {
+            for await (const item of collection) {
+                const key = await keySelector(item, i);
+                const value = await valueSelector(item, i);
+                const group = groups.get(key);
+
+                if (group !== undefined) {
+                    group.push(value);
+                } else {
+                    groups.set(key, [value]);
+                }
+                i++;
+            }
+
+            if (groupSelector !== undefined) {
+                for (const entry of groups) {
+                    const key = entry[0];
+                    const group = entry[1];
+                    groups.set(key, await groupSelector(group, key));
+                }
+            }
+
+            return groups;
+        })();
     }
 }
 

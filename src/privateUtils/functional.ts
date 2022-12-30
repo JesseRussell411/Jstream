@@ -32,17 +32,16 @@ export function lazy<R>(action: () => R): () => R {
             const result = action();
             supplier = () => result;
             return result;
-        } catch (e) {
+        } catch (error) {
             supplier = () => {
-                throw e;
+                throw error;
             };
-            throw e;
+            throw error;
         }
     };
 
     return () => supplier();
 }
-
 export function getOrCall<T>(itemOrGetter: T | (() => T)): T;
 export function getOrCall<T>(itemOrGetter?: undefined): undefined;
 export function getOrCall<T>(itemOrGetter?: T | (() => T)): T | undefined;

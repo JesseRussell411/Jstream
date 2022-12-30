@@ -1,5 +1,5 @@
 /**
- * Generalizes literal types. If 2, is a number. If "foo", is a string. If 4n, is a bigint. etc.
+ * Generalizes literal types. For example: if 2, is number. If "foo", is string. If 4n, is bigint. Does not work with booleans.
  */
 export type General<T> = T extends number
     ? number
