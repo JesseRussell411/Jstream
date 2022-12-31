@@ -36,15 +36,12 @@ import {
     asStandardCollection,
     groupBy,
     memoizeIterable,
+    min,
     nonIteratedCountOrUndefined,
     toMap,
 } from "./privateUtils/data";
 import { requireInteger } from "./privateUtils/errorGuards";
-import {
-    returns,
-    getOrCall,
-    identity,
-} from "./privateUtils/functional";
+import { returns, getOrCall, identity } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
@@ -66,7 +63,7 @@ import {
     ToObjectWithKey,
     ToObjectWithValue,
 } from "./types/utility";
-import { multiCompare, reverseOrder } from "./utils/sorting";
+import { multiCompare, reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
 export type JstreamProperties<_> = Readonly<
@@ -769,6 +766,13 @@ export default class Jstream<T> implements Iterable<T> {
             i++;
         }
         return result;
+    }
+    public min(count: number | bigint, order: Order<T> = smartComparator): T[] {
+        return min(this, count, order);
+    }
+
+    public max(count: number | bigint, order: Order<T> = smartComparator): T[] {
+        return min(this, count, reverseOrder(order));
     }
 
     public some(

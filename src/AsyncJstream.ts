@@ -4,6 +4,7 @@ import {
     asStandardCollection,
     groupBy,
     memoizeIterable,
+    min,
     nonIteratedCountOrUndefined,
     toArray,
     toMap,
@@ -27,6 +28,7 @@ import {
     EntryLikeValue,
     StandardCollection,
 } from "./types/collections";
+import { Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
 import {
     AsMap,
@@ -39,6 +41,7 @@ import {
     ToObjectWithKey,
     ToObjectWithValue,
 } from "./types/utility";
+import { reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
 export type AsyncJstreamProperties<_> = Readonly<
@@ -110,6 +113,30 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
             i++;
         }
+    }
+
+    public nonAsyncIterableOrUndefined(): Iterable<T> | undefined {
+        const source = this.getSource();
+        if (source instanceof Promise) return undefined;
+        if (isIterable(source)) {
+            return source;
+        } else {
+            return undefined;
+        }
+    }
+
+    public min(
+        count: number | bigint,
+        order: Order<T> = smartComparator
+    ): Promise<T[]> {
+        return min(this, count, order);
+    }
+
+    public max(
+        count: number | bigint,
+        order: Order<T> = smartComparator
+    ): Promise<T[]> {
+        return min(this, count, reverseOrder(order));
     }
 
     // stream methods
