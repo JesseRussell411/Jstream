@@ -1,3 +1,5 @@
+import { BreakSignal } from "../types/symbols";
+import { breakSignal } from "../utils/symbols";
 import { doNothing } from "./functional";
 
 export class Deferred<T> extends Promise<T> {
@@ -23,5 +25,16 @@ export class Deferred<T> extends Promise<T> {
             this._reject = reject;
             executer?.(resolve, reject);
         });
+    }
+}
+
+export async function asyncForEach<T>(iterable: AsyncIterable<T>, action: (item: T, index: number) => void | BreakSignal): Promise<void> {
+    const iterator = iterable[Symbol.asyncIterator]();
+    let next = await iterator.next();
+    let i = 0;
+    for(; !next.done; next = await iterator.next()){
+        const signal = action(next.value, i);
+        if (signal === breakSignal) break;
+        i++;
     }
 }

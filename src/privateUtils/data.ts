@@ -1,3 +1,4 @@
+import AsyncJstream from "../AsyncJstream";
 import Jstream from "../Jstream";
 import { Awaitable, AwaitableIterable } from "../types/async";
 import {
@@ -5,7 +6,10 @@ import {
     EntryLikeValue,
     ReadonlyStandardCollection,
 } from "../types/collections";
+import { Order } from "../types/sorting";
 import { AsMap, AsMapWithKey, AsMapWithValue } from "../types/utility";
+import { asComparator, smartComparator } from "../utils/sorting";
+import { requireGreaterThanZero, requireInteger } from "./errorGuards";
 import { identity } from "./functional";
 import { isIterable, isStandardCollection } from "./typeGuards";
 
@@ -412,4 +416,111 @@ export function nonIteratedCountOrUndefined(
     if (collection instanceof Jstream)
         return collection.nonIteratedCountOrUndefined();
     return undefined;
+}
+
+
+export function min<T>(
+    items: Iterable<T>,
+    count: number | bigint,
+    order?: Order<T>
+): T[];
+
+export function min<T>(
+    items: AsyncIterable<T>,
+    count: number | bigint,
+    order?: Order<T>
+): Promise<T[]>;
+
+export function min<T>(
+    items: AwaitableIterable<T>,
+    count: number | bigint,
+    order: Order<T> = smartComparator
+): Awaitable<T[]> {
+    requireGreaterThanZero(requireInteger(count));
+
+    const comparator = asComparator(order);
+
+    if (isIterable(items)) {
+        const itemsLength = nonIteratedCountOrUndefined(items);
+        if (itemsLength !== undefined && count > Math.sqrt(itemsLength)) {
+            const result = [...items];
+            result.sort(comparator);
+            return result.slice(0, Number(count));
+        }
+
+        const result: T[] = [];
+
+        for (const item of items) {
+            let insertionFlag = false;
+
+            for (let i = 0; i < result.length; i++) {
+                if (comparator(item, result[i]!) < 0) {
+                    insertionFlag = true;
+
+                    if (result.length < count) {
+                        result.length += 1;
+                    }
+                    result.copyWithin(i + 1, i, result.length);
+
+                    result[i] = item;
+                    break;
+                }
+            }
+
+            if (result.length < count && insertionFlag === false) {
+                result.push(item);
+            }
+        }
+
+        return result;
+    } else {
+        if (items instanceof AsyncJstream) {
+            const nonAsync = items.nonAsyncIterableOrUndefined();
+            if (nonAsync !== undefined) {
+                return Promise.resolve(min(nonAsync, count, order));
+            }
+        }
+
+        return (async () => {
+            const itemsLength =
+                items instanceof AsyncJstream
+                    ? await items.nonIteratedCountOrUndefined()
+                    : undefined;
+
+            if (
+                count >
+                (itemsLength !== undefined ? Math.sqrt(itemsLength))
+            ) {
+                const result = await toArray(items);
+                result.sort(comparator);
+                return result.slice(0, Number(count));
+            }
+
+            const result: T[] = [];
+
+            for await (const item of items) {
+                let insertionFlag = false;
+
+                for (let i = 0; i < result.length; i++) {
+                    if (comparator(item, result[i]!) < 0) {
+                        insertionFlag = true;
+
+                        if (result.length < count) {
+                            result.length += 1;
+                        }
+                        result.copyWithin(i + 1, i, result.length);
+
+                        result[i] = item;
+                        break;
+                    }
+                }
+
+                if (result.length < count && insertionFlag === false) {
+                    result.push(item);
+                }
+            }
+
+            return result;
+        })();
+    }
 }

@@ -9,7 +9,7 @@ export function identity<T>(item: T): T {
 }
 
 /** @returns A function that returns the given item. */
-export function constant<T>(item: T): () => T {
+export function returns<T>(item: T): () => T {
     return () => item;
 }
 
@@ -41,4 +41,14 @@ export function lazy<R>(action: () => R): () => R {
     };
 
     return () => supplier();
+}
+export function getOrCall<T>(itemOrGetter: T | (() => T)): T;
+export function getOrCall<T>(itemOrGetter?: undefined): undefined;
+export function getOrCall<T>(itemOrGetter?: T | (() => T)): T | undefined;
+export function getOrCall<T>(itemOrGetter: T | (() => T)): T {
+    if (itemOrGetter instanceof Function) {
+        return itemOrGetter();
+    } else {
+        return itemOrGetter;
+    }
 }

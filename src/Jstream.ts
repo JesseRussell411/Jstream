@@ -37,6 +37,7 @@ import {
     fisherYatesShuffle,
     groupBy,
     memoizeIterable,
+    min,
     nonIteratedCountOrUndefined,
     toMap,
 } from "./privateUtils/data";
@@ -46,7 +47,7 @@ import {
     requireNonNegative,
     requireNonZero,
 } from "./privateUtils/errorGuards";
-import { identity } from "./privateUtils/functional";
+import { returns, getOrCall, identity } from "./privateUtils/functional";
 import { range } from "./privateUtils/iterable";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
@@ -69,7 +70,7 @@ import {
     ToObjectWithKey,
     ToObjectWithValue,
 } from "./types/utility";
-import { multiCompare, reverseOrder } from "./utils/sorting";
+import { multiCompare, reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
 export type JstreamProperties<_> = Readonly<
@@ -807,6 +808,78 @@ export default class Jstream<T> implements Iterable<T> {
         } else {
             return [...source];
         }
+    }
+
+    public find(predicate: (item: T, index: number) => boolean): T | undefined;
+
+    public find<A>(
+        predicate: (item: T, index: number) => boolean,
+        alternative: A | (() => A)
+    ): T | A;
+
+    public find(
+        predicate: (item: T, index: number) => boolean,
+        alternative?: any
+    ): any {
+        let i = 0;
+        for (const item of this) {
+            if (predicate(item, i)) return item;
+            i++;
+        }
+        return getOrCall(alternative);
+    }
+
+    public findLast(
+        predicate: (item: T, index: number) => boolean
+    ): T | undefined;
+
+    public findLast<A>(
+        predicate: (item: T, index: number) => boolean,
+        alternative: A | (() => A)
+    ): T | A;
+
+    public findLast(
+        predicate: (item: T, index: number) => boolean,
+        alternative?: any
+    ): any {
+        let i = 0;
+        let result = getOrCall(alternative);
+        for (const item of this) {
+            if (predicate(item, i)) result = item;
+            i++;
+        }
+        return result;
+    }
+    public min(count: number | bigint, order: Order<T> = smartComparator): T[] {
+        return min(this, count, order);
+    }
+
+    public max(count: number | bigint, order: Order<T> = smartComparator): T[] {
+        return min(this, count, reverseOrder(order));
+    }
+
+    public some(
+        predicate: (item: T, index: number) => boolean = returns(true)
+    ): boolean {
+        let i = 0;
+        for (const item of this) {
+            if (predicate(item, i)) return true;
+        }
+        return false;
+    }
+
+    public none(
+        predicate: (item: T, index: number) => boolean = returns(true)
+    ): boolean {
+        return !this.some(predicate);
+    }
+
+    public every(predicate: (item: T, index: number) => boolean): boolean {
+        let i = 0;
+        for (const item of this) {
+            if (!predicate(item, i)) return false;
+        }
+        return true;
     }
 
     public toAsyncJstream(): AsyncJstream<T> {
