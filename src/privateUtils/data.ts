@@ -33,7 +33,7 @@ export function memoizeIterable<T>(
                     } else {
                         const next = iterator.next();
                         if (next.done) break;
-                        const value = next.value;
+                        const value = next.value;ee
                         cache.push(value);
                         yield value;
                     }
@@ -275,7 +275,7 @@ export function asStandardCollection<T>(
         return items;
     }
     if (isIterable(items)) {
-        return toArray;
+        return toArray(items);
     } else {
         return (async () => {
             const arr = new Set<Awaited<T>>();

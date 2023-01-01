@@ -1,8 +1,6 @@
-import { isAbsolute, sep } from "path";
 import Jstream from "./Jstream";
 import {
     asStandardCollection,
-    groupBy,
     memoizeIterable,
     nonIteratedCountOrUndefined,
     toArray,
@@ -13,6 +11,7 @@ import {
     requireInteger,
 } from "./privateUtils/errorGuards";
 import { identity } from "./privateUtils/functional";
+import { range } from "./privateUtils/iterable";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import {
@@ -32,9 +31,7 @@ import {
     AsMap,
     AsMapWithKey,
     AsMapWithValue,
-    Defined,
     General,
-    NonNull,
     ToObject,
     ToObjectWithKey,
     ToObjectWithValue,
@@ -96,6 +93,46 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         return new AsyncJstream(async () => getOwnEntries(await object));
     }
 
+    public range(
+        start: bigint,
+        end: bigint,
+        step: bigint
+    ): AsyncJstream<bigint>;
+    public range(start: bigint, end: bigint): AsyncJstream<bigint>;
+    public range(end: bigint): AsyncJstream<bigint>;
+
+    public range(
+        start: number | bigint,
+        end: number | bigint,
+        step: number | bigint
+    ): AsyncJstream<number>;
+    public range(
+        start: number | bigint,
+        end: number | bigint
+    ): AsyncJstream<number>;
+
+    public range(end: number | bigint): AsyncJstream<number>;
+
+    public range(
+        _startOrEnd: number | bigint,
+        _end?: number | bigint,
+        _step?: number | bigint
+    ): AsyncJstream<number> | AsyncJstream<bigint> {
+        if (_end === undefined) {
+            const end = _startOrEnd;
+            return AsyncJstream.from(range(end));
+        } else if (_step === undefined) {
+            const start = _startOrEnd;
+            const end = _end;
+            return AsyncJstream.from(range(start, end));
+        } else {
+            const start = _startOrEnd;
+            const end = _end;
+            const step = _step;
+            return AsyncJstream.from(range(start, end, step));
+        }
+    }
+
     public async forEach(
         action: (
             item: Awaited<T>,
@@ -124,6 +161,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                 i++;
             }
         });
+    }
+
+    public withIndex(): AsyncJstream<[number, Awaited<T>]> {
+        return this.map((item, index) => [index, item]);
     }
 
     public filter<R extends Awaited<T> = Awaited<T>>(

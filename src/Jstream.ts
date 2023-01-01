@@ -34,6 +34,7 @@
 import AsyncJstream from "./AsyncJstream";
 import {
     asStandardCollection,
+    fisherYatesShuffle,
     groupBy,
     memoizeIterable,
     nonIteratedCountOrUndefined,
@@ -42,9 +43,11 @@ import {
 import {
     requireGreaterThanZero,
     requireInteger,
+    requireNonNegative,
     requireNonZero,
 } from "./privateUtils/errorGuards";
 import { identity } from "./privateUtils/functional";
+import { range } from "./privateUtils/iterable";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import { isArray, isStandardCollection } from "./privateUtils/typeGuards";
@@ -118,6 +121,39 @@ export default class Jstream<T> implements Iterable<T> {
         return new Jstream(() => getOwnEntries(object));
     }
 
+    public range(start: bigint, end: bigint, step: bigint): Jstream<bigint>;
+    public range(start: bigint, end: bigint): Jstream<bigint>;
+    public range(end: bigint): Jstream<bigint>;
+
+    public range(
+        start: number | bigint,
+        end: number | bigint,
+        step: number | bigint
+    ): Jstream<number>;
+    public range(start: number | bigint, end: number | bigint): Jstream<number>;
+
+    public range(end: number | bigint): Jstream<number>;
+
+    public range(
+        _startOrEnd: number | bigint,
+        _end?: number | bigint,
+        _step?: number | bigint
+    ): Jstream<number> | Jstream<bigint> {
+        if (_end === undefined) {
+            const end = _startOrEnd;
+            return Jstream.from(range(end));
+        } else if (_step === undefined) {
+            const start = _startOrEnd;
+            const end = _end;
+            return Jstream.from(range(start, end));
+        } else {
+            const start = _startOrEnd;
+            const end = _end;
+            const step = _step;
+            return Jstream.from(range(start, end, step));
+        }
+    }
+
     public forEach(
         action: (item: T, index: number) => void | BreakSignal
     ): void {
@@ -139,6 +175,10 @@ export default class Jstream<T> implements Iterable<T> {
                 i++;
             }
         });
+    }
+
+    public withIndex(): Jstream<[number, T]> {
+        return this.map((item, index) => [index, item]);
     }
 
     public filter<R extends T = T>(
@@ -272,6 +312,45 @@ export default class Jstream<T> implements Iterable<T> {
                 Number(end)
             )
         );
+    }
+
+    public shuffle(): Jstream<T> {
+        return new Jstream(() => {
+            const array = this.toArray();
+            fisherYatesShuffle(array);
+            return array;
+        });
+    }
+
+    public skip(count: number | bigint): Jstream<T> {
+        requireNonNegative(requireInteger(count));
+        const self = this;
+        return new Jstream(function* () {
+            const iterator = self[Symbol.iterator]();
+
+            for (let i = 0n; i < count; i++) {
+                if (iterator.next().done) return;
+            }
+
+            let next: IteratorResult<T>;
+            while (!(next = iterator.next()).done) {
+                yield next.value;
+            }
+        });
+    }
+
+    public take(count: number | bigint): Jstream<T> {
+        requireNonNegative(requireInteger(count));
+        const self = this;
+        return new Jstream(function* () {
+            const iterator = self[Symbol.iterator]();
+
+            for (let i = 0n; i < count; i++) {
+                const next = iterator.next();
+                if (next.done) return;
+                yield next.value;
+            }
+        });
     }
 
     public join<O, K, R>(
