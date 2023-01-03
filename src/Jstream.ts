@@ -41,13 +41,8 @@ import {
     nonIteratedCountOrUndefined,
     toMap,
 } from "./privateUtils/data";
-import {
-    requireGreaterThanZero,
-    requireInteger,
-    requireNonNegative,
-    requireNonZero,
-} from "./privateUtils/errorGuards";
-import { returns, getOrCall, identity } from "./privateUtils/functional";
+import { requireInteger, requireNonNegative } from "./privateUtils/errorGuards";
+import { getOrCall, identity, returns } from "./privateUtils/functional";
 import { range } from "./privateUtils/iterable";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
@@ -73,10 +68,17 @@ import {
 import { multiCompare, reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 
+/**
+ * Properties of the {@link Jstream} and its source. Boolean properties are assumed to be "unknown" when undefined, not false.
+ */
 export type JstreamProperties<_> = Readonly<
     Partial<{
         /** Each call to the source getter produces a new copy of the source. */
         freshSource: boolean;
+        /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
+        expensiveSource: boolean;
+        /** The source is an instance of either: {@link Array}, {@link Set}, or {@link Map}. */
+        standardSource: boolean;
     }>
 >;
 
@@ -85,8 +87,8 @@ export default class Jstream<T> implements Iterable<T> {
     private readonly properties: JstreamProperties<T>;
 
     public constructor(
-        getSource: () => Iterable<T>,
-        properties: JstreamProperties<T> = {}
+        properties: JstreamProperties<T>,
+        getSource: () => Iterable<T>
     ) {
         this.getSource = getSource;
         this.properties = properties;
@@ -100,16 +102,16 @@ export default class Jstream<T> implements Iterable<T> {
         source: Iterable<T> | (() => Iterable<T>)
     ): Jstream<T> {
         if (source instanceof Function) {
-            return new Jstream(source);
+            return new Jstream({}, source);
         } else if (source instanceof Jstream) {
             return source;
         } else {
-            return new Jstream(() => source);
+            return new Jstream({}, () => source);
         }
     }
 
     public static of<T>(...items: T[]): Jstream<T> {
-        return new Jstream(() => items);
+        return new Jstream({}, () => items);
     }
 
     public static empty<T>(): Jstream<T> {
@@ -119,7 +121,9 @@ export default class Jstream<T> implements Iterable<T> {
     public static fromObject<K extends keyof any, V>(
         object: Record<K, V>
     ): Jstream<[K & (string | symbol), V]> {
-        return new Jstream(() => getOwnEntries(object));
+        return new Jstream({ expensiveSource: true }, () =>
+            getOwnEntries(object)
+        );
     }
 
     public range(start: bigint, end: bigint, step: bigint): Jstream<bigint>;
@@ -169,7 +173,7 @@ export default class Jstream<T> implements Iterable<T> {
     public map<R>(mapping: (item: T, index: number) => R): Jstream<R> {
         const self = this;
 
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             let i = 0;
             for (const item of self) {
                 yield mapping(item, i);
@@ -187,7 +191,7 @@ export default class Jstream<T> implements Iterable<T> {
     ): Jstream<R> {
         const self = this;
 
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             let i = 0;
             for (const item of self) {
                 if (predicate(item, i)) yield item as R;
@@ -198,7 +202,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     public append<O>(item: O): Jstream<T | O> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             yield* self;
             yield item;
         });
@@ -206,7 +210,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     public prepend<O>(item: O): Jstream<O | T> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             yield item;
             yield* self;
         });
@@ -214,7 +218,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     public concat<O>(items: Iterable<O>): Jstream<T | O> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             yield* self;
             yield* items;
         });
@@ -222,26 +226,27 @@ export default class Jstream<T> implements Iterable<T> {
 
     public preConcat<O>(items: Iterable<O>): Jstream<O | T> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             yield* items;
             yield* self;
         });
     }
 
     public sortBy(order: Order<T>): SortedJstream<T> {
-        return new SortedJstream(this.getSource, [order], this.properties);
+        return new SortedJstream([order], this.properties, this.getSource);
     }
 
     public sortByDescending(order: Order<T>): SortedJstream<T> {
         return new SortedJstream(
-            this.getSource,
             [reverseOrder(order)],
-            this.properties
+            this.properties,
+            this.getSource
         );
     }
 
     public reverse(): Jstream<T> {
         return new Jstream(
+            { expensiveSource: true, freshSource: true, standardSource: true },
             () => {
                 const source = this.getSource();
 
@@ -260,8 +265,7 @@ export default class Jstream<T> implements Iterable<T> {
                     array.reverse();
                     return array;
                 }
-            },
-            { freshSource: true }
+            }
         );
     }
 
@@ -273,7 +277,7 @@ export default class Jstream<T> implements Iterable<T> {
 
         const self = this;
 
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             const memoized = memoizeIterable(self);
             for (let i = 0n; i < times; i++) {
                 for (const item of memoized) {
@@ -285,7 +289,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     public defined(): Jstream<T & ({} | null)> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             for (const item of self) {
                 if (item !== undefined) yield item;
             }
@@ -294,7 +298,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     public nonNull(): Jstream<T & ({} | undefined)> {
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             for (const item of self) {
                 if (item !== null) yield item;
             }
@@ -306,27 +310,32 @@ export default class Jstream<T> implements Iterable<T> {
         start: number | bigint,
         end?: number | bigint
     ): Jstream<T> {
-        return new Jstream(() =>
-            this.toArray().copyWithin(
-                Number(target),
-                Number(start),
-                Number(end)
-            )
+        return new Jstream(
+            { expensiveSource: true, freshSource: true, standardSource: true },
+            () =>
+                this.toArray().copyWithin(
+                    Number(target),
+                    Number(start),
+                    Number(end)
+                )
         );
     }
 
     public shuffle(): Jstream<T> {
-        return new Jstream(() => {
-            const array = this.toArray();
-            fisherYatesShuffle(array);
-            return array;
-        });
+        return new Jstream(
+            { expensiveSource: true, freshSource: true, standardSource: true },
+            () => {
+                const array = this.toArray();
+                fisherYatesShuffle(array);
+                return array;
+            }
+        );
     }
 
     public skip(count: number | bigint): Jstream<T> {
         requireNonNegative(requireInteger(count));
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             const iterator = self[Symbol.iterator]();
 
             for (let i = 0n; i < count; i++) {
@@ -343,13 +352,51 @@ export default class Jstream<T> implements Iterable<T> {
     public take(count: number | bigint): Jstream<T> {
         requireNonNegative(requireInteger(count));
         const self = this;
-        return new Jstream(function* () {
+        return new Jstream({}, function* () {
             const iterator = self[Symbol.iterator]();
 
             for (let i = 0n; i < count; i++) {
                 const next = iterator.next();
                 if (next.done) return;
                 yield next.value;
+            }
+        });
+    }
+
+    public insertAll<O>(
+        index: number | bigint,
+        items: Iterable<O>
+    ): Jstream<T | O> {
+        // TODO add bounds checking or something like that
+        requireInteger(index);
+
+        const self = this;
+        return new Jstream({}, function* () {
+            let count: number;
+            let iterable: Iterable<T> = self;
+            let usableIndex: bigint;
+            if (!(index > 0)) {
+                usableIndex = BigInt(index);
+            } else {
+                const nonIteratedCount = self.nonIteratedCountOrUndefined();
+                if (nonIteratedCount === undefined) {
+                    const array = self.toArray();
+                    iterable = array;
+                    count = array.length;
+                } else {
+                    count = nonIteratedCount;
+                }
+
+                usableIndex = BigInt(count) + BigInt(index);
+            }
+
+            let i = 0n;
+            for (const item of iterable) {
+                if (usableIndex === i) {
+                    yield* items;
+                }
+                yield item;
+                i++;
             }
         });
     }
@@ -387,7 +434,7 @@ export default class Jstream<T> implements Iterable<T> {
                 item: O,
                 index: number
             ) => K;
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const otherIndexed = toMap(other, otherKeySelector, identity);
 
                 let i = 0;
@@ -410,17 +457,15 @@ export default class Jstream<T> implements Iterable<T> {
                 otherItem: O
             ) => boolean;
 
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const otherCached = asStandardCollection(other) as Iterable<O>;
 
-                let i = 0;
                 for (const item of self) {
                     for (const otherItem of otherCached) {
                         if (comparison(item, otherItem)) {
                             yield resultSelector(item, otherItem);
                         }
                     }
-                    i++;
                 }
             });
         }
@@ -459,7 +504,7 @@ export default class Jstream<T> implements Iterable<T> {
                 item: I,
                 index: number
             ) => K;
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const innerIndexed = toMap(inner, innerKeySelector, identity);
 
                 let i = 0;
@@ -480,7 +525,7 @@ export default class Jstream<T> implements Iterable<T> {
                 innerItem: I
             ) => boolean;
 
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const innerCached = asStandardCollection(inner) as Iterable<I>;
 
                 for (const item of self) {
@@ -531,7 +576,7 @@ export default class Jstream<T> implements Iterable<T> {
                 index: number
             ) => K;
 
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const innerGrouped = groupBy(inner, innerKeySelector);
 
                 let i = 0;
@@ -552,7 +597,7 @@ export default class Jstream<T> implements Iterable<T> {
                 innerItem: I
             ) => boolean;
 
-            return new Jstream(function* () {
+            return new Jstream({ expensiveSource: true }, function* () {
                 const innerCached = asStandardCollection(inner) as Iterable<I>;
 
                 for (const item of self) {
@@ -650,6 +695,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public nonIteratedCountOrUndefined(): number | undefined {
+        if (this.properties.expensiveSource) return undefined;
         const source = this.getSource();
         return nonIteratedCountOrUndefined(source);
     }
@@ -919,11 +965,12 @@ export class SortedJstream<T> extends Jstream<T> {
     private readonly unsortedProperties: JstreamProperties<T>;
 
     public constructor(
-        getSource: () => Iterable<T>,
         order: readonly Order<T>[],
-        properties: JstreamProperties<T> = {}
+        properties: JstreamProperties<T> = {},
+        getSource: () => Iterable<T>
     ) {
         super(
+            { standardSource: true, expensiveSource: true, freshSource: true },
             () => {
                 const source = getSource();
                 let arr: T[];
@@ -934,8 +981,7 @@ export class SortedJstream<T> extends Jstream<T> {
                 }
                 arr.sort(this.comparison);
                 return arr;
-            },
-            { freshSource: true }
+            }
         );
 
         this.getUnsortedSource = getSource;
@@ -946,17 +992,17 @@ export class SortedJstream<T> extends Jstream<T> {
 
     public thenBy(order: Order<T>): SortedJstream<T> {
         return new SortedJstream<T>(
-            this.getUnsortedSource,
             [...this.order, order],
-            this.unsortedProperties
+            this.unsortedProperties,
+            this.getUnsortedSource
         );
     }
 
     public thenByDescending(order: Order<T>): SortedJstream<T> {
         return new SortedJstream<T>(
-            this.getUnsortedSource,
             [...this.order, reverseOrder(order)],
-            this.unsortedProperties
+            this.unsortedProperties,
+            this.getUnsortedSource
         );
     }
 }

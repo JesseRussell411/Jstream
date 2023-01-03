@@ -40,7 +40,7 @@ import {
 } from "./types/utility";
 import { reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
-
+// TODO expensiveSource, insertAll, documentation
 export type AsyncJstreamProperties<_> = Readonly<
     Partial<{
         freshSource: boolean;
