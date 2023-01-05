@@ -73,7 +73,7 @@ import { breakSignal } from "./utils/symbols";
  */
 export type JstreamProperties<_> = Readonly<
     Partial<{
-        /** Each call to the source getter produces a new copy of the source. */
+        /** Each call to the source getter produces a new copy of the source. This means that the source can be modified safely, assuming it is a mutable collection like {@link Array}. */
         freshSource: boolean;
         /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
         expensiveSource: boolean;

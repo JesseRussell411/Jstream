@@ -1,4 +1,4 @@
-import Jstream from "./Jstream";
+import Jstream, { JstreamProperties } from "./Jstream";
 import {
     asStandardCollection,
     memoizeIterable,
@@ -41,11 +41,7 @@ import {
 import { reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 // TODO expensiveSource, insertAll, documentation
-export type AsyncJstreamProperties<_> = Readonly<
-    Partial<{
-        freshSource: boolean;
-    }>
->;
+export type AsyncJstreamProperties<T> = JstreamProperties<T>;
 
 export default class AsyncJstream<T> implements AsyncIterable<T> {
     private readonly getSource: () => Awaitable<AwaitableIterable<T>>;
@@ -56,7 +52,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         properties: AsyncJstreamProperties<T> = {}
     ) {
         this.getSource = getSource;
-        this.properties = properties;
+        this.properties = properties.;
     }
 
     public [Symbol.asyncIterator]() {
