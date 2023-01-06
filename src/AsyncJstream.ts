@@ -52,7 +52,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         properties: AsyncJstreamProperties<T> = {}
     ) {
         this.getSource = getSource;
-        this.properties = properties.;
+        this.properties = properties;
     }
 
     public [Symbol.asyncIterator]() {
