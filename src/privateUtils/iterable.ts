@@ -1,14 +1,33 @@
 import { AwaitableIterable } from "../types/async";
 
-export function iterableFromGeneratorFunction<T>(
-    generatorFunction: () => Generator<T>
+/**
+ * @returns An iterable over the iterator from the given function. Unlike Generators, this can be iterated more than once.
+ */
+export function iterableFromIteratorGetter<T>(
+    iteratorGetter: () => Iterator<T>
 ): Iterable<T> {
     return {
-        [Symbol.iterator]: generatorFunction,
+        [Symbol.iterator]: iteratorGetter,
     };
 }
 
-export const _emptyIterator: Iterator<any> = {
+
+export function iterableFromIterator<T>(iterator: Iterator<T>): Iterable<T>{
+    let returnedIterator = iterator;
+    return {
+        [Symbol.iterator](){
+            const result = returnedIterator;
+            returnedIterator = emptyIterator<T>();
+            return result;
+        }
+    }
+}
+
+export function lazyIterable<T>(iterableGetter: () => Iterable<T>): Iterable<T> {
+    return iterableFromIteratorGetter(() => iterableGetter()[Symbol.iterator]());
+}
+
+const _emptyIterator: Iterator<any> = {
     next(): IteratorResult<any> {
         return { done: true, value: undefined };
     },
@@ -34,26 +53,39 @@ export function emptyIterable<T = any>(): AwaitableIterable<T> {
     return _emptyIterable;
 }
 
+export function emptyIterator<T = any>(): Iterator<T> {
+    return _emptyIterator;
+}
+
+export function emptyAsyncIterator<T = any>(): AsyncIterator<T> {
+    return _emptyAsyncIterator;
+}
+
+/** A clone of python's range function */
 export function range(
     start: bigint,
     end: bigint,
     step: bigint
 ): Iterable<bigint>;
+/** A clone of python's range function */
 export function range(start: bigint, end: bigint): Iterable<bigint>;
+/** A clone of python's range function */
 export function range(end: bigint): Iterable<bigint>;
-
+/** A clone of python's range function */
 export function range(
     start: number | bigint,
     end: number | bigint,
     step: number | bigint
 ): Iterable<number>;
+/** A clone of python's range function */
 export function range(
     start: number | bigint,
     end: number | bigint
 ): Iterable<number>;
-
+/** A clone of python's range function */
 export function range(end: number | bigint): Iterable<number>;
 
+/** A clone of python's range function */
 export function range(
     _startOrEnd: number | bigint,
     _end?: number | bigint,
@@ -97,7 +129,7 @@ export function range(
 
     const test = step > ZERO ? (i: any) => i < end : (i: any) => i > end;
 
-    return iterableFromGeneratorFunction(function* () {
+    return iterableFromIteratorGetter(function* () {
         for (let i = start; test(i); i += step) yield i;
     });
 }

@@ -38,3 +38,23 @@ export function requireNonZero(num: number | bigint): number | bigint {
         throw new Error("expected non zero but got " + num);
     return num;
 }
+
+/**
+ * Ensures that the number is greater than or equal to {@link Number.MIN_SAFE_INTEGER}
+ * and less than or equal to {@link Number.MAX_SAFE_INTEGER}.
+ * @throws If the number is too big or too small to be safe.
+ */
+export function requireSafeNumber(number: number | bigint): number | bigint {
+    if (number < Number.MIN_SAFE_INTEGER) throw new Error(`${number} is less than the smallest safe integer: ${Number.MIN_SAFE_INTEGER}`);
+    if (number > Number.MAX_SAFE_INTEGER) throw new Error(`${number} is greater than the largest safe integer: ${Number.MAX_SAFE_INTEGER}`);
+    return number;
+}
+
+/**
+ * Ensures that the number is an integer, greater than or equal to {@link Number.MIN_SAFE_INTEGER},
+ * and less than or equal to {@link Number.MAX_SAFE_INTEGER}.
+ * @throws If the number is too big or too small to be safe or if it is not an integer.
+ */
+export function requireSafeInteger(number: number | bigint): number | bigint {
+    return requireSafeNumber(requireInteger(number));
+}

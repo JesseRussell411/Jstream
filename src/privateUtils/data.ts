@@ -2,18 +2,27 @@ import AsyncJstream from "../AsyncJstream";
 import Jstream from "../Jstream";
 import { Awaitable, AwaitableIterable } from "../types/async";
 import {
+    AsMap,
+    AsMapWithKey,
+    AsMapWithValue,
     EntryLikeKey,
     EntryLikeValue,
     ReadonlyStandardCollection,
 } from "../types/collections";
 import { Order } from "../types/sorting";
-import { AsMap, AsMapWithKey, AsMapWithValue } from "../types/utility";
 import { asComparator, smartComparator } from "../utils/sorting";
 import { requireGreaterThanZero, requireInteger } from "./errorGuards";
 import { identity } from "./functional";
+import { iterableFromIteratorGetter } from "./iterable";
 import { isIterable, isStandardCollection } from "./typeGuards";
 
+/**
+ * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
+ */
 export function memoizeIterable<T>(iterable: Iterable<T>): Iterable<T>;
+/**
+ * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
+ */
 export function memoizeIterable<T>(
     iterable: AsyncIterable<T>
 ): AsyncIterable<T>;
@@ -23,28 +32,26 @@ export function memoizeIterable<T>(
     if (isIterable(iterable)) {
         const cache: T[] = [];
         let iterator: Iterator<T> | undefined = undefined;
-        return {
-            *[Symbol.iterator]() {
-                if (iterator === undefined) {
-                    iterator = iterable[Symbol.iterator]();
-                }
+        return iterableFromIteratorGetter(function* () {
+            if (iterator === undefined) {
+                iterator = iterable[Symbol.iterator]();
+            }
 
-                let i = 0;
+            let i = 0;
 
-                while (true) {
-                    if (i < cache.length) {
-                        yield cache[i]!;
-                    } else {
-                        const next = iterator.next();
-                        if (next.done) break;
-                        const value = next.value;ee
-                        cache.push(value);
-                        yield value;
-                    }
-                    i++;
+            while (true) {
+                if (i < cache.length) {
+                    yield cache[i]!;
+                } else {
+                    const next = iterator.next();
+                    if (next.done) break;
+                    const value = next.value;
+                    cache.push(value);
+                    yield value;
                 }
-            },
-        };
+                i++;
+            }
+        });
     } else {
         const cache: Awaited<T>[] = [];
         let iterator: AsyncIterator<T> | undefined = undefined;
@@ -74,8 +81,9 @@ export function memoizeIterable<T>(
 
 /**
  * In-place Fisher-Yates shuffle of the given array.
+ * Uses {@link Math.random}.
  */
-export function fisherYatesShuffle(array: any[]) {
+export function fisherYatesShuffle(array: any[]): void {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.trunc(Math.random() * (i + 1));
 
@@ -418,7 +426,6 @@ export function nonIteratedCountOrUndefined(
     return undefined;
 }
 
-
 export function min<T>(
     items: Iterable<T>,
     count: number | bigint,
@@ -487,10 +494,7 @@ export function min<T>(
                     ? await items.nonIteratedCountOrUndefined()
                     : undefined;
 
-            if (
-                count >
-                (itemsLength !== undefined ? Math.sqrt(itemsLength))
-            ) {
+            if (itemsLength !== undefined && count > Math.sqrt(itemsLength)) {
                 const result = await toArray(items);
                 result.sort(comparator);
                 return result.slice(0, Number(count));

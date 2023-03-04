@@ -11,8 +11,7 @@ import {
     requireGreaterThanZero,
     requireInteger,
 } from "./privateUtils/errorGuards";
-import { getOrCall, identity, returns } from "./privateUtils/functional";
-import { range } from "./privateUtils/iterable";
+import { resultOf, identity, returns } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
 import { mkString } from "./privateUtils/strings";
 import {
@@ -22,22 +21,20 @@ import {
 } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import {
+    AsMap,
+    AsMapWithKey,
+    AsMapWithValue,
     AsReadonly,
     EntryLikeKey,
     EntryLikeValue,
     StandardCollection,
-} from "./types/collections";
-import { Order } from "./types/sorting";
-import { BreakSignal } from "./types/symbols";
-import {
-    AsMap,
-    AsMapWithKey,
-    AsMapWithValue,
-    General,
     ToObject,
     ToObjectWithKey,
     ToObjectWithValue,
-} from "./types/utility";
+} from "./types/collections";
+import { General } from "./types/literals";
+import { Order } from "./types/sorting";
+import { BreakSignal } from "./types/symbols";
 import { reverseOrder, smartComparator } from "./utils/sorting";
 import { breakSignal } from "./utils/symbols";
 // TODO expensiveSource, insertAll, documentation
@@ -90,46 +87,6 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         object: Awaitable<Record<K, V>>
     ): AsyncJstream<[K & (string | symbol), V]> {
         return new AsyncJstream(async () => getOwnEntries(await object));
-    }
-
-    public range(
-        start: bigint,
-        end: bigint,
-        step: bigint
-    ): AsyncJstream<bigint>;
-    public range(start: bigint, end: bigint): AsyncJstream<bigint>;
-    public range(end: bigint): AsyncJstream<bigint>;
-
-    public range(
-        start: number | bigint,
-        end: number | bigint,
-        step: number | bigint
-    ): AsyncJstream<number>;
-    public range(
-        start: number | bigint,
-        end: number | bigint
-    ): AsyncJstream<number>;
-
-    public range(end: number | bigint): AsyncJstream<number>;
-
-    public range(
-        _startOrEnd: number | bigint,
-        _end?: number | bigint,
-        _step?: number | bigint
-    ): AsyncJstream<number> | AsyncJstream<bigint> {
-        if (_end === undefined) {
-            const end = _startOrEnd;
-            return AsyncJstream.from(range(end));
-        } else if (_step === undefined) {
-            const start = _startOrEnd;
-            const end = _end;
-            return AsyncJstream.from(range(start, end));
-        } else {
-            const start = _startOrEnd;
-            const end = _end;
-            const step = _step;
-            return AsyncJstream.from(range(start, end, step));
-        }
     }
 
     public async forEach(
@@ -254,22 +211,6 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         });
     }
 
-    public append<O>(item: O): AsyncJstream<Awaited<T> | Awaited<O>> {
-        const self = this;
-        return new AsyncJstream(async function* () {
-            yield* self;
-            yield item;
-        });
-    }
-
-    public prepend<O>(item: O): AsyncJstream<Awaited<O> | Awaited<T>> {
-        const self = this;
-        return new AsyncJstream(async function* () {
-            yield item;
-            yield* self;
-        });
-    }
-
     public concat<O>(
         items: Awaitable<AwaitableIterable<O>>
     ): AsyncJstream<Awaited<T> | Awaited<O>> {
@@ -285,9 +226,17 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     ): AsyncJstream<Awaited<O> | Awaited<T>> {
         const self = this;
         return new AsyncJstream(async function* () {
-            yield* self;
             yield* await items;
+            yield* self;
         });
+    }
+
+    public append<O>(item: O): AsyncJstream<Awaited<T> | Awaited<O>> {
+        return this.concat([item]);
+    }
+
+    public prepend<O>(item: O): AsyncJstream<Awaited<O> | Awaited<T>> {
+        return this.concat([item]);
     }
 
     public reverse(): AsyncJstream<Awaited<T> | T> {
@@ -353,25 +302,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public groupBy<K, V>(
         keySelector: (item: Awaited<T>, index: number) => K,
-        groupSelector: undefined,
-        valueSelector: (item: Awaited<T>, index: number) => V
+        groupSelector: undefined
     ): AsyncJstream<[Awaited<K>, Awaited<V>[]]>;
 
     public groupBy<K, G>(
         keySelector: (item: Awaited<T>, index: number) => K,
-        groupSelector: (group: Awaited<T>[], key: Awaited<K>) => G
-    ): AsyncJstream<[Awaited<K>, Awaited<G>]>;
-
-    public groupBy<K, G, V>(
-        keySelector: (item: Awaited<T>, index: number) => K,
-        groupSelector: (group: Awaited<V>[], key: Awaited<K>) => G,
-        valueSelector: (item: Awaited<T>, index: number) => V
-    ): AsyncJstream<[Awaited<K>, Awaited<G>]>;
-
-    public groupBy<K, G>(
-        keySelector: (item: Awaited<T>, index: number) => K,
-        groupSelector?: (group: any[], key: Awaited<K>) => G,
-        valueSelector: (item: Awaited<T>, index: number) => any = identity
+        groupSelector?: (group: any[], key: Awaited<K>) => G
     ): AsyncJstream<[Awaited<K>, Awaited<G>]> {
         return new AsyncJstream(async () => {
             // group the items
@@ -380,13 +316,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             let i = 0;
             for await (const item of this) {
                 const key = await keySelector(item, i);
-                const value = await valueSelector(item, i);
 
                 let group = groups.get(key);
                 if (group === undefined) {
-                    groups.set(key, [value]);
+                    groups.set(key, [item]);
                 } else {
-                    group.push(value);
+                    group.push(item);
                 }
                 i++;
             }
@@ -1018,7 +953,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             if (await predicate(item, i)) return item;
             i++;
         }
-        return await getOrCall(alternative);
+        return await resultOf(alternative);
     }
 
     public findLast(
@@ -1035,12 +970,25 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         alternative?: any
     ): Promise<any> {
         let i = 0;
-        let result = getOrCall(alternative);
+        let result = resultOf(alternative);
         for await (const item of this) {
             if (await predicate(item, i)) result = item;
             i++;
         }
         return result;
+    }
+
+    public async toIterable(): Promise<Iterable<T | Awaited<T>>> {
+        const source = await this.getSource();
+        if (isIterable(source)) {
+            return source;
+        } else {
+            const result = [];
+            for await (const item of source) {
+                result.push(item);
+            }
+            return result;
+        }
     }
 
     public async toJstream(): Promise<Jstream<T | Awaited<T>>> {

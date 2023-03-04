@@ -30,11 +30,15 @@ export function asComparator<T>(order: Order<T>): Comparator<T> {
 //TODO better description:
 /**
  * A much better default comparator.
- * Generally tries to sort things how you would expect them to be sorted. false comes before true, symbols are sorted by their description, etc.
+ * Tries to sort things how you would expect them to be sorted. false comes before true, symbols are sorted by their description, etc.
  * numbers are sorted by their NUMERIC value not their ASCII value so 2 comes before 10 like it should (also, number and bigint are sorted together so 2n will come before 3 and 4n will come after 3, etc.).
- * Sorts arrays by their length
+ * 
+ * Sorts arrays by length
+ * 
  * earlier {@link Date}s come before later {@link Date}s
- * doesn't attempt to sort objects
+ * 
+ * Sorts objects by number of fields, not including inherited fields (like class methods for example).
+ * 
  * sorts functions by number of parameters
  */
 export function smartComparator(a: any, b: any): number {
@@ -63,6 +67,8 @@ export function smartComparator(a: any, b: any): number {
     // type
     const typeRatingA = rateType(a);
     const typeRatingB = rateType(b);
+
+    // sort by type first
     if (typeRatingA !== typeRatingB) return typeRatingA - typeRatingB;
 
     // value
@@ -138,6 +144,7 @@ export function smartComparator(a: any, b: any): number {
 
         // array
         case 6:
+            // sort arrays by length
             return (a as any[]).length - (b as any[]).length;
 
         // date
@@ -149,8 +156,9 @@ export function smartComparator(a: any, b: any): number {
 
         // object
         case 8:
-            // not even attempted
-            return 0;
+            // sort by number of fields (not including inherited fields)
+            return Reflect.ownKeys(a).length - Reflect.ownKeys(b).length;
+
 
         // function
         case 9:

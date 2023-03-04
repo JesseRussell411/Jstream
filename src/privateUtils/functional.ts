@@ -42,10 +42,11 @@ export function lazy<R>(action: () => R): () => R {
 
     return () => supplier();
 }
-export function getOrCall<T>(itemOrGetter: T | (() => T)): T;
-export function getOrCall<T>(itemOrGetter?: undefined): undefined;
-export function getOrCall<T>(itemOrGetter?: T | (() => T)): T | undefined;
-export function getOrCall<T>(itemOrGetter: T | (() => T)): T {
+
+/** @returns The value given or its result if it's a function. */
+export function resultOf<T>(itemOrGetter: T | (() => T)): T;
+
+export function resultOf<T>(itemOrGetter: T | (() => T)): T {
     if (itemOrGetter instanceof Function) {
         return itemOrGetter();
     } else {

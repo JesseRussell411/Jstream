@@ -60,13 +60,15 @@ export function mkString(
 
     if (typeof start !== "string")
         return mkString(collection, `${start}`, separator, end);
+
     if (typeof separator !== "string")
         return mkString(collection, start, `${separator}`, end);
+
     if (typeof end !== "string")
         return mkString(collection, start, separator, `${end}`);
 
     if (typeof collection === "string" && separator === "") {
-        // TODO find out if this is necessary
+        // TODO find out if this is necessary, it almost certainly isn't.
         if (start === "" && end === "") {
             return collection;
         } else if (start === "") {
@@ -79,6 +81,8 @@ export function mkString(
     }
 
     if (isIterable(collection)) {
+        // collection is not async
+
         // TODO test performance difference
         // return start + [...collection].join(separator) + end;
 
@@ -99,7 +103,9 @@ export function mkString(
         builder.push(end);
         return builder.join("");
     } else {
+        // collection is an async iterable
         return (async () => {
+
             const builder: unknown[] = [start];
 
             const iterator = collection[Symbol.asyncIterator]();
