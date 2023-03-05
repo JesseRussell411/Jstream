@@ -7,7 +7,7 @@ import {
     AsMapWithValue,
     EntryLikeKey,
     EntryLikeValue,
-    ReadonlyStandardCollection,
+    ReadonlyStandardCollection
 } from "../types/collections";
 import { Order } from "../types/sorting";
 import { asComparator, smartComparator } from "../utils/sorting";

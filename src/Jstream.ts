@@ -693,8 +693,28 @@ export default class Jstream<T> implements Iterable<T> {
         ) as Jstream<T> | Jstream<R>;
     }
 
+    public flat(): Jstream<T extends Iterable<infer SubT> ? SubT : T> {
+        const self = this;
+        return new Jstream({}, function* () {
+            for (const item of self) {
+                if (isIterable(item)) {
+                    yield* item as any;
+                } else {
+                    yield item;
+                }
+            }
+        });
+    }
+
+    /**
+     * Iterates the {@link Jstream}, caching the result. Returns a {@link Jstream} over that cached result.
+     */
+    public collapse(): Jstream<T> {
+        return Jstream.from([...this]);
+    }
+
     // =======================
-    // reduction/to non-stream
+    // reduction to non-stream
     // =======================
     /**
      * Reduces the stream to a single value using the given reducer function.
