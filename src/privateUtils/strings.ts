@@ -1,51 +1,51 @@
 import { AwaitableIterable } from "../types/async";
 import { isIterable } from "./typeGuards";
 
-export function mkString(collection: Iterable<unknown>): string;
+export function makeString(collection: Iterable<unknown>): string;
 
-export function mkString(
+export function makeString(
     collection: Iterable<any>,
     separator: any
 ): string;
 
-export function mkString(
+export function makeString(
     collection: Iterable<any>,
     start: any,
     separator: any,
     end?: any
 ): string;
 
-export function mkString(collection: AsyncIterable<any>): Promise<string>;
+export function makeString(collection: AsyncIterable<any>): Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AsyncIterable<any>,
     separator: any
 ): Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AsyncIterable<any>,
     start: any,
     separator: any,
     end?: any
 ): Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AwaitableIterable<any>
 ): string | Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AwaitableIterable<any>,
     separator: any
 ): string | Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AwaitableIterable<any>,
     start: any,
     separator: any,
     end?: any
 ): string | Promise<string>;
 
-export function mkString(
+export function makeString(
     collection: AwaitableIterable<unknown>,
     startOrSeparator: unknown = "",
     separator: unknown = "",
@@ -53,22 +53,21 @@ export function mkString(
 ): string | Promise<string> {
     if (arguments.length === 2) {
         const separator = startOrSeparator;
-        return mkString(collection, "", separator, "");
+        return makeString(collection, "", separator, "");
     }
 
     const start = startOrSeparator;
 
     if (typeof start !== "string")
-        return mkString(collection, `${start}`, separator, end);
+        return makeString(collection, `${start}`, separator, end);
 
     if (typeof separator !== "string")
-        return mkString(collection, start, `${separator}`, end);
+        return makeString(collection, start, `${separator}`, end);
 
     if (typeof end !== "string")
-        return mkString(collection, start, separator, `${end}`);
+        return makeString(collection, start, separator, `${end}`);
 
     if (typeof collection === "string" && separator === "") {
-        // TODO find out if this is necessary, it almost certainly isn't.
         if (start === "" && end === "") {
             return collection;
         } else if (start === "") {

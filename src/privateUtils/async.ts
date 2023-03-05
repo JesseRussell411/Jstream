@@ -1,5 +1,5 @@
 import { BreakSignal } from "../types/symbols";
-import { breakSignal } from "../utils/symbols";
+import { breakSignal } from "../symbols/symbols";
 import { doNothing } from "./functional";
 
 export class Deferred<T> extends Promise<T> {

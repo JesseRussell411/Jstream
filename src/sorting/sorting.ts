@@ -4,6 +4,7 @@ import { Comparator, Order } from "../types/sorting";
  * @returns Whether the {@link Order} is a comparator.
  */
 export function isComparator<T>(order: Order<T>): order is Comparator<T> {
+    // check how many arguments it takes. Comparators take 2, key selectors take 1.
     return order.length >= 2;
 }
 
@@ -91,7 +92,7 @@ export function smartComparator(a: any, b: any): number {
         case 3:
             // TODO test performance difference
 
-            // if (a < b){
+            // if (a < b) {
             //     return -1;
             // } else if (a > b) {
             //     return 1;
@@ -224,7 +225,7 @@ export function multiCompare<T>(orders: Iterable<Order<T>>): Comparator<T> {
     return (a: T, b: T) => {
         for (const comparator of comparators) {
             const cmp = comparator(a, b);
-            if (cmp != 0) return cmp;
+            if (cmp !== 0) return cmp;
         }
 
         return 0;

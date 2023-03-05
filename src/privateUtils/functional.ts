@@ -44,8 +44,6 @@ export function lazy<R>(action: () => R): () => R {
 }
 
 /** @returns The value given or its result if it's a function. */
-export function resultOf<T>(itemOrGetter: T | (() => T)): T;
-
 export function resultOf<T>(itemOrGetter: T | (() => T)): T {
     if (itemOrGetter instanceof Function) {
         return itemOrGetter();

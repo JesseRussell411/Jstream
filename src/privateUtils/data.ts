@@ -1,5 +1,6 @@
 import AsyncJstream from "../AsyncJstream";
 import Jstream from "../Jstream";
+import { asComparator, smartComparator } from "../sorting/sorting";
 import { Awaitable, AwaitableIterable } from "../types/async";
 import {
     AsMap,
@@ -8,11 +9,10 @@ import {
     EntryLikeKey,
     EntryLikeValue,
     ReadonlyStandardCollection,
-    StandardCollection,
+    StandardCollection
 } from "../types/collections";
 import { Order } from "../types/sorting";
-import { asComparator, smartComparator } from "../utils/sorting";
-import { requireGreaterThanZero, requireInteger } from "./errorGuards";
+import { requireGreaterThanZero, requireSafeInteger } from "./errorGuards";
 import { identity } from "./functional";
 import { iterableFromIteratorGetter } from "./iterable";
 import { isArray, isIterable, isStandardCollection } from "./typeGuards";
@@ -465,7 +465,7 @@ export function min<T>(
     count: number | bigint,
     order: Order<T> = smartComparator
 ): Awaitable<T[]> {
-    requireGreaterThanZero(requireInteger(count));
+    requireGreaterThanZero(requireSafeInteger(count));
 
     const comparator = asComparator(order);
 

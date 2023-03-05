@@ -54,12 +54,15 @@ import {
     lazyIterable,
     range,
 } from "./privateUtils/iterable";
-import { mkString } from "./privateUtils/strings";
+import { makeString } from "./privateUtils/strings";
 import {
     isArray,
     isIterable,
     isStandardCollection,
 } from "./privateUtils/typeGuards";
+import { SortedJstream } from "./SortedJstream";
+import { reverseOrder, smartComparator } from "./sorting/sorting";
+import { breakSignal } from "./symbols/symbols";
 import {
     AsMap,
     AsMapWithKey,
@@ -76,8 +79,6 @@ import {
 import { General } from "./types/literals";
 import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
-import { multiCompare, reverseOrder, smartComparator } from "./utils/sorting";
-import { breakSignal } from "./utils/symbols";
 
 /**
  * Properties of the {@link Jstream} and its source. Boolean properties are assumed to be "unknown" when undefined, not false.
@@ -88,8 +89,6 @@ export type JstreamProperties<_> = Readonly<
         freshSource: boolean;
         /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
         expensiveSource: boolean;
-        /** The source is an instance of either: {@link Array}, {@link Set}, or {@link Map}. */
-        standardSource: boolean;
     }>
 >;
 
@@ -135,10 +134,7 @@ export default class Jstream<T> implements Iterable<T> {
             source instanceof Set ||
             source instanceof Map
         ) {
-            return new Jstream(
-                { expensiveSource: false, standardSource: true },
-                () => source
-            );
+            return new Jstream({ expensiveSource: false }, () => source);
         } else if (isIterable(source)) {
             return new Jstream({ expensiveSource: false }, () => source);
         } else {
@@ -435,33 +431,50 @@ export default class Jstream<T> implements Iterable<T> {
         return this.filter(item => item !== null);
     }
 
+    /**
+     * Filters duplicate items out of the stream.
+     *
+     * @param How to identify each item. Defaults to using the item itself.
+     */
+    public unique(identifier: (item: T) => any = identity): Jstream<T> {
+        const self = this;
+
+        return new Jstream({}, function* () {
+            const yielded = new Set<any>();
+
+            for (const item of self) {
+                const id = identifier(item);
+
+                if (!yielded.has(id)) {
+                    yield item;
+                    yielded.add(id);
+                }
+            }
+        });
+    }
+
     /** Equivalent to {@link Array.copyWithin}. */
     public copyWithin(
         target: number | bigint,
         start: number | bigint,
         end?: number | bigint
     ): Jstream<T> {
-        return new Jstream(
-            { expensiveSource: true, freshSource: true, standardSource: true },
-            () =>
-                this.toArray().copyWithin(
-                    Number(target),
-                    Number(start),
-                    Number(end)
-                )
+        return new Jstream({ expensiveSource: true, freshSource: true }, () =>
+            this.toArray().copyWithin(
+                Number(target),
+                Number(start),
+                Number(end)
+            )
         );
     }
 
     /** Shuffles the contents of the stream. */
     public shuffle(): Jstream<T> {
-        return new Jstream(
-            { expensiveSource: true, freshSource: true, standardSource: true },
-            () => {
-                const array = this.toArray();
-                fisherYatesShuffle(array);
-                return array;
-            }
-        );
+        return new Jstream({ expensiveSource: true, freshSource: true }, () => {
+            const array = this.toArray();
+            fisherYatesShuffle(array);
+            return array;
+        });
     }
 
     /**
@@ -531,6 +544,7 @@ export default class Jstream<T> implements Iterable<T> {
         condition: (item: T, index: number) => boolean
     ): Jstream<T> {
         const self = this;
+
         return new Jstream({}, function* () {
             const iterator = self[Symbol.iterator]();
             let index = 0;
@@ -551,6 +565,7 @@ export default class Jstream<T> implements Iterable<T> {
     /** Takes the given number of items from the stream and skips the rest. */
     public take(count: number | bigint): Jstream<T> {
         requireNonNegative(requireInteger(count));
+
         const self = this;
         return new Jstream({}, function* () {
             const iterator = self[Symbol.iterator]();
@@ -566,6 +581,7 @@ export default class Jstream<T> implements Iterable<T> {
     /** Takes the given number of items from the end of the stream and skips the rest. */
     public takeLast(count: number | bigint): Jstream<T> {
         requireNonNegative(requireSafeInteger(count));
+
         if (count === 0 || count === 0n) return this;
         if (typeof count === "bigint") return this.takeLast(Number(count));
 
@@ -618,35 +634,32 @@ export default class Jstream<T> implements Iterable<T> {
         keySelector: (item: T, index: number) => K,
         groupSelector?: (group: T[], key: K) => G
     ): Jstream<[K, T[] | G]> {
-        return new Jstream(
-            { expensiveSource: true, freshSource: true, standardSource: true },
-            () => {
-                const groups = new Map<K, any>();
+        return new Jstream({ expensiveSource: true, freshSource: true }, () => {
+            const groups = new Map<K, any>();
 
-                let index = 0;
-                for (const item of this) {
-                    const key = keySelector(item, index);
+            let index = 0;
+            for (const item of this) {
+                const key = keySelector(item, index);
 
-                    const group = groups.get(key);
-                    if (group === undefined) {
-                        groups.set(key, [item]);
-                    } else {
-                        group.push(item);
-                    }
-
-                    index++;
+                const group = groups.get(key);
+                if (group === undefined) {
+                    groups.set(key, [item]);
+                } else {
+                    group.push(item);
                 }
 
-                if (groupSelector !== undefined) {
-                    for (const entry of groups) {
-                        const group = groupSelector(entry[1], entry[0]);
-                        groups.set(entry[0], group);
-                    }
-                }
-
-                return groups;
+                index++;
             }
-        );
+
+            if (groupSelector !== undefined) {
+                for (const entry of groups) {
+                    const group = groupSelector(entry[1], entry[0]);
+                    groups.set(entry[0], group);
+                }
+            }
+
+            return groups;
+        });
     }
 
     /**
@@ -714,7 +727,10 @@ export default class Jstream<T> implements Iterable<T> {
      * Splits the collection on the deliminator.
      * Equivalent to {@link String.split} except that regular expressions aren't supported.
      */
-    public split<O>(deliminator: Iterable<O>, equalityChecker?: (t: T, o: O) => boolean): Jstream<T[]>{
+    public split<O>(
+        deliminator: Iterable<O>,
+        equalityChecker?: (t: T, o: O) => boolean
+    ): Jstream<T[]> {
         return new Jstream({}, () => split(this, deliminator, equalityChecker));
     }
 
@@ -1132,17 +1148,17 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Finds the smallest item in the stream using {@link smartComparator}.
+     * Finds the smallest items in the stream using {@link smartComparator}.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public min(count: number | bigint): T[];
     /**
-     * Finds the smallest item in the stream using the given comparator.
+     * Finds the smallest items in the stream using the given comparator.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public min(count: number | bigint, comparator: Comparator<T>): T[];
     /**
-     * Finds the smallest item in the stream using the mapping from the given key selector and {@link smartComparator}.
+     * Finds the smallest items in the stream using the mapping from the given key selector and {@link smartComparator}.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public min(count: number | bigint, keySelector: (item: T) => any): T[];
@@ -1151,17 +1167,17 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Finds the largest item in the stream using {@link smartComparator}.
+     * Finds the largest items in the stream using {@link smartComparator}.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public max(count: number | bigint): T[];
     /**
-     * Finds the largest item in the stream using the given comparator.
+     * Finds the largest items in the stream using the given comparator.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public max(count: number | bigint, comparator: Comparator<T>): T[];
     /**
-     * Finds the largest item in the stream using the mapping from the given key selector and {@link smartComparator}.
+     * Finds the largest items in the stream using the mapping from the given key selector and {@link smartComparator}.
      * @param count How many item to find (unless the stream has less items than that.)
      */
     public max(count: number | bigint, keySelector: (item: T) => any): T[];
@@ -1184,7 +1200,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     /**
      * The inverse of {@link Jstream.some}.
-     * @returns Whether none item in the stream causes the given condition function to return true.
+     * @returns Whether no item in the stream causes the given condition function to return true.
      */
     public none(
         condition: (item: T, index: number) => boolean = returns(true)
@@ -1213,28 +1229,28 @@ export default class Jstream<T> implements Iterable<T> {
     /**
      * @returns The string values of each item in the stream concatenated together.
      */
-    public mkString(): string;
+    public makeString(): string;
     /**
      * @returns The string values of each item in the stream concatenated together with the string value of the given separator between them.
      */
-    public mkString(separator: any): string;
+    public makeString(separator: any): string;
     /**
      * @returns The string values of each item in the stream concatenated together with the string value of the given separator between them.
      * @param start Concatenated onto the start of the resulting string.
      * @param end If provided: concatenated onto the end of the resulting string.
      */
-    public mkString(start: any, separator: any, end?: any): string;
-    public mkString(
+    public makeString(start: any, separator: any, end?: any): string;
+    public makeString(
         startOrSeparator?: any,
         separator?: any,
         end?: any
     ): string {
         if (arguments.length === 1) {
             const separator = startOrSeparator;
-            return mkString(this.getSource(), separator);
+            return makeString(this.getSource(), separator);
         } else {
             const start = startOrSeparator;
-            return mkString(this.getSource(), start, separator, end);
+            return makeString(this.getSource(), start, separator, end);
         }
     }
 
@@ -1242,7 +1258,7 @@ export default class Jstream<T> implements Iterable<T> {
      * @returns The string values of each item in the stream concatenated together.
      */
     public toString(): string {
-        return this.mkString();
+        return this.makeString();
     }
 
     /**
@@ -1432,7 +1448,7 @@ export default class Jstream<T> implements Iterable<T> {
                 index: number
             ) => K;
 
-            return new Jstream({ expensiveSource: true }, function* () {
+            return new Jstream({}, function* () {
                 const innerGrouped = groupBy(inner, innerKeySelector);
 
                 let i = 0;
@@ -1453,7 +1469,7 @@ export default class Jstream<T> implements Iterable<T> {
                 innerItem: I
             ) => boolean;
 
-            return new Jstream({ expensiveSource: true }, function* () {
+            return new Jstream({}, function* () {
                 const innerCached = asStandardCollection(inner) as Iterable<I>;
 
                 for (const item of self) {
@@ -1467,66 +1483,5 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             });
         }
-    }
-}
-
-export class SortedJstream<T> extends Jstream<T> {
-    /** the order to sort the items in */
-    private readonly order: readonly Order<T>[];
-    /** the order to sort the items in put into a comparator */
-    private readonly comparator: Comparator<T>;
-    /** the original getSource function */
-    private readonly getUnsortedSource: () => Iterable<T>;
-    /** the properties of the original stream */
-    private readonly unsortedProperties: JstreamProperties<T>;
-
-    public constructor(
-        order: readonly Order<T>[],
-        properties: JstreamProperties<T> = {},
-        getSource: () => Iterable<T>
-    ) {
-        super(
-            { standardSource: true, expensiveSource: true, freshSource: true },
-            () => {
-                const source = getSource();
-                let arr: T[];
-                if (properties.freshSource && isArray(source)) {
-                    arr = source;
-                } else {
-                    arr = [...source];
-                }
-                arr.sort(this.comparator);
-                return arr;
-            }
-        );
-
-        this.getUnsortedSource = getSource;
-        this.unsortedProperties = properties;
-        this.order = order;
-        this.comparator = multiCompare(order);
-    }
-
-    /** Sorts the stream by the given comparator in ascending order after all previous sorts. */
-    public thenBy(comparator: Comparator<T>): SortedJstream<T>;
-    /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order after all previous sorts. */
-    public thenBy(keySelector: (item: T) => any): SortedJstream<T>;
-    public thenBy(order: Order<T>): SortedJstream<T> {
-        return new SortedJstream<T>(
-            [...this.order, order],
-            this.unsortedProperties,
-            this.getUnsortedSource
-        );
-    }
-
-    /** Sorts the stream by the given comparator in descending order after all previous sorts. */
-    public thenByDescending(comparator: Comparator<T>): SortedJstream<T>;
-    /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order after all previous sorts. */
-    public thenByDescending(keySelector: (item: T) => any): SortedJstream<T>;
-    public thenByDescending(order: Order<T>): SortedJstream<T> {
-        return new SortedJstream<T>(
-            [...this.order, reverseOrder(order)],
-            this.unsortedProperties,
-            this.getUnsortedSource
-        );
     }
 }

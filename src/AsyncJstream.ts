@@ -10,15 +10,18 @@ import {
 import {
     requireGreaterThanZero,
     requireInteger,
+    requireSafeInteger,
 } from "./privateUtils/errorGuards";
-import { resultOf, identity, returns } from "./privateUtils/functional";
+import { identity, resultOf, returns } from "./privateUtils/functional";
 import { getOwnEntries } from "./privateUtils/objects";
-import { mkString } from "./privateUtils/strings";
+import { makeString } from "./privateUtils/strings";
 import {
     isArray,
     isIterable,
     isStandardCollection,
 } from "./privateUtils/typeGuards";
+import { reverseOrder, smartComparator } from "./sorting/sorting";
+import { breakSignal } from "./symbols/symbols";
 import { Awaitable, AwaitableIterable } from "./types/async";
 import {
     AsMap,
@@ -35,8 +38,6 @@ import {
 import { General } from "./types/literals";
 import { Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
-import { reverseOrder, smartComparator } from "./utils/sorting";
-import { breakSignal } from "./utils/symbols";
 // TODO expensiveSource, insertAll, documentation
 export type AsyncJstreamProperties<T> = JstreamProperties<T>;
 
@@ -193,7 +194,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     public partition(size: number | bigint): AsyncJstream<Awaited<T>[]> {
-        requireGreaterThanZero(requireInteger(size));
+        requireGreaterThanZero(requireSafeInteger(size));
 
         const self = this;
         return new AsyncJstream(async function* () {
@@ -1005,10 +1006,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     ): Promise<string> {
         if (arguments.length === 1) {
             const separator = startOrSeparator;
-            return await mkString(await this.getSource(), separator);
+            return await makeString(await this.getSource(), separator);
         } else {
             const start = startOrSeparator;
-            return await mkString(
+            return await makeString(
                 await this.getSource(),
                 start,
                 separator,

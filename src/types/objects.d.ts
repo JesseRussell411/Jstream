@@ -1,4 +1,4 @@
-/** Removes readonly from all properties in T. */
+/** Removes readonly from all properties in T. Effectively the inverse of {@link Readonly} */
 export type Modifiable<T> = {
     -readonly [P in keyof T]: T[P];
 }
