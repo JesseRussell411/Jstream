@@ -7,14 +7,15 @@ import {
     AsMapWithValue,
     EntryLikeKey,
     EntryLikeValue,
-    ReadonlyStandardCollection
+    ReadonlyStandardCollection,
+    StandardCollection,
 } from "../types/collections";
 import { Order } from "../types/sorting";
 import { asComparator, smartComparator } from "../utils/sorting";
 import { requireGreaterThanZero, requireInteger } from "./errorGuards";
 import { identity } from "./functional";
 import { iterableFromIteratorGetter } from "./iterable";
-import { isIterable, isStandardCollection } from "./typeGuards";
+import { isArray, isIterable, isStandardCollection } from "./typeGuards";
 
 /**
  * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
@@ -299,6 +300,27 @@ export function asStandardCollection<T>(
     }
 }
 
+export function nonIteratedCount(
+    collection: ReadonlyStandardCollection<any> | StandardCollection<any>
+): number {
+    if (Array.isArray(collection)) return collection.length;
+    return (collection as any).size;
+}
+
+export function asArray<T>(collection: Iterable<T>): readonly T[];
+
+export function asArray<T>(collection: AsyncIterable<T>): Promise<readonly T[]>;
+
+export function asArray<T>(
+    collection: AwaitableIterable<T>
+): Awaitable<readonly T[]> {
+    if (isArray(collection)) {
+        return collection;
+    } else {
+        return toArray(collection);
+    }
+}
+
 export function groupBy<T, K, G, V>(
     collection: Iterable<T>,
     keySelector: (item: T, index: number) => K,
@@ -527,4 +549,49 @@ export function min<T>(
             return result;
         })();
     }
+}
+
+/**
+ * Splits the collection on the deliminator.
+ * Equivalent to {@link String.split} except that regular expressions aren't supported.
+ */
+export function split<T, O>(
+    collection: Iterable<T>,
+    deliminator: Iterable<O>,
+    equalityChecker: (t: T, o: O) => boolean = Object.is
+): Iterable<T[]> {
+    return iterableFromIteratorGetter(function* () {
+        const delim = asStandardCollection(deliminator);
+        const delimLength = nonIteratedCount(delim);
+
+        let chunk: T[] = [];
+
+        let delimIter = delim[Symbol.iterator]();
+        let next = delimIter.next();
+        for (const value of collection) {
+            if (equalityChecker(value, next.value)) {
+                next = delimIter.next();
+            } else {
+                delimIter = delim[Symbol.iterator]();
+                next = delimIter.next();
+            }
+
+            if (next.done) {
+                // remove delim from chunk
+                chunk.splice(chunk.length - delimLength + 1, delimLength - 1);
+                chunk.length -= delimLength;
+
+                // reset deliminator iterator
+                delimIter = delim[Symbol.iterator]();
+                next = delimIter.next();
+
+                // yield and reset chunk
+                yield chunk;
+                chunk = [];
+            } else {
+                chunk.push(value);
+            }
+        }
+        yield chunk;
+    });
 }

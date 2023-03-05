@@ -31,15 +31,15 @@ export function isIterator<T>(
     return (item as any)?.next instanceof Function;
 }
 
-export function isArray<T>(item: AwaitableIterable<T>): item is T[];
-export function isArray(item: any): item is unknown[];
-export function isArray(item: any): item is unknown[] {
+export function isArray<T>(item: AwaitableIterable<T>): item is readonly T[];
+export function isArray(item: any): item is readonly unknown[];
+export function isArray(item: any): boolean {
     return Array.isArray(item);
 }
 
-export function isSet<T>(item: AwaitableIterable<T> | any): item is Set<T>;
-export function isSet(item: any): item is Set<unknown>;
-export function isSet(item: any): item is Set<unknown> {
+export function isSet<T>(item: AwaitableIterable<T>): item is ReadonlySet<T>;
+export function isSet(item: any): item is ReadonlySet<unknown>;
+export function isSet(item: any): boolean{
     return item instanceof Set;
 }
 

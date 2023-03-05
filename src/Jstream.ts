@@ -39,6 +39,7 @@ import {
     memoizeIterable,
     min,
     nonIteratedCountOrUndefined,
+    split,
     toMap,
 } from "./privateUtils/data";
 import {
@@ -693,6 +694,9 @@ export default class Jstream<T> implements Iterable<T> {
         ) as Jstream<T> | Jstream<R>;
     }
 
+    /**
+     * Flattens the stream.
+     */
     public flat(): Jstream<T extends Iterable<infer SubT> ? SubT : T> {
         const self = this;
         return new Jstream({}, function* () {
@@ -704,6 +708,14 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             }
         });
+    }
+
+    /**
+     * Splits the collection on the deliminator.
+     * Equivalent to {@link String.split} except that regular expressions aren't supported.
+     */
+    public split<O>(deliminator: Iterable<O>, equalityChecker?: (t: T, o: O) => boolean): Jstream<T[]>{
+        return new Jstream({}, () => split(this, deliminator, equalityChecker));
     }
 
     /**
