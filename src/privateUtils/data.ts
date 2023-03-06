@@ -9,7 +9,7 @@ import {
     EntryLikeKey,
     EntryLikeValue,
     ReadonlyStandardCollection,
-    StandardCollection
+    StandardCollection,
 } from "../types/collections";
 import { Order } from "../types/sorting";
 import { requireGreaterThanZero, requireSafeInteger } from "./errorGuards";
@@ -27,6 +27,7 @@ export function memoizeIterable<T>(iterable: Iterable<T>): Iterable<T>;
 export function memoizeIterable<T>(
     iterable: AsyncIterable<T>
 ): AsyncIterable<T>;
+
 export function memoizeIterable<T>(
     iterable: AwaitableIterable<T>
 ): AwaitableIterable<T> {
@@ -42,12 +43,19 @@ export function memoizeIterable<T>(
 
             while (true) {
                 if (i < cache.length) {
-                    yield cache[i]!;
+                    yield cache[i] as T;
                 } else {
                     const next = iterator.next();
+
                     if (next.done) break;
+
                     const value = next.value;
-                    cache.push(value);
+
+                    // just to make sure the value belong on the end of the cache.
+                    if (cache.length === i) {
+                        cache.push(value);
+                    }
+
                     yield value;
                 }
                 i++;
@@ -69,9 +77,15 @@ export function memoizeIterable<T>(
                         yield cache[i]!;
                     } else {
                         const next = await iterator.next();
+
                         if (next.done) break;
+
                         const value = await next.value;
-                        cache.push(value);
+
+                        if (cache.length === i) {
+                            cache.push(value);
+                        }
+
                         yield value;
                     }
                 }
@@ -318,6 +332,20 @@ export function asArray<T>(
         return collection;
     } else {
         return toArray(collection);
+    }
+}
+
+export function asSet<T>(collection: Iterable<T>): ReadonlySet<T>;
+
+export function asSet<T>(collection: AsyncIterable<T>): Promise<ReadonlySet<T>>;
+
+export function asSet<T>(
+    collection: AwaitableIterable<T>
+): Awaitable<ReadonlySet<T>> {
+    if (collection instanceof Set) {
+        return collection;
+    } else {
+        return toSet(collection);
     }
 }
 

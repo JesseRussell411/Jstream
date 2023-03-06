@@ -1,9 +1,12 @@
+import Jstream from "../Jstream";
+
 export class DoubleMap<A, B> implements Map<A, B> {
     private aIndex: Map<A, B>;
     private bIndex: Map<B, A>;
 
     public constructor();
 
+    // not actually exposed thanks to the overload above
     public constructor(
         aIndex: Map<A, B> = new Map(),
         bIndex: Map<B, A> = new Map()
@@ -17,6 +20,16 @@ export class DoubleMap<A, B> implements Map<A, B> {
         bIndex: Map<B, A>
     ): DoubleMap<A, B> {
         return new (DoubleMap as { new (...args: any): any })(aIndex, bIndex);
+    }
+
+    public static from<A, B>(
+        entries: Iterable<readonly [A, B]>
+    ): DoubleMap<A, B> {
+        const a = new Map(entries);
+        const b = new Map(
+            Jstream.from(a).map(entry => [entry[1], entry[0]] as const)
+        );
+        return this.privateConstructor(a, b);
     }
 
     flipped(): ReadonlyMap<B, A> {
@@ -74,7 +87,7 @@ export class DoubleMap<A, B> implements Map<A, B> {
         return this.deleteByA(a);
     }
 
-    deleteByA(a: A):boolean {
+    deleteByA(a: A): boolean {
         const b = this.aIndex.get(a);
 
         if (b !== undefined || this.aIndex.has(a)) {
@@ -85,11 +98,11 @@ export class DoubleMap<A, B> implements Map<A, B> {
             return false;
         }
     }
-    
-    deleteByB(b: B):boolean {
+
+    deleteByB(b: B): boolean {
         const a = this.bIndex.get(b);
 
-        if (a !== undefined || this.bIndex.has(b)){
+        if (a !== undefined || this.bIndex.has(b)) {
             this.bIndex.delete(b);
             this.aIndex.delete(a as any);
             return true;

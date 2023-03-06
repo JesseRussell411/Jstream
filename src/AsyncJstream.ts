@@ -1,4 +1,4 @@
-import Jstream, { JstreamProperties } from "./Jstream";
+import Jstream from "./Jstream";
 import {
     asStandardCollection,
     memoizeIterable,
@@ -39,7 +39,14 @@ import { General } from "./types/literals";
 import { Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
 // TODO expensiveSource, insertAll, documentation
-export type AsyncJstreamProperties<T> = JstreamProperties<T>;
+export type AsyncJstreamProperties<_> = Partial<
+    Readonly<{
+        /** Each call to the source getter produces a new copy of the source. This means that the source can be modified safely, assuming it is a mutable collection like {@link Array}, which is not guarantied. */
+        freshSource: boolean;
+        /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
+        expensiveSource: boolean;
+    }>
+>;
 
 export default class AsyncJstream<T> implements AsyncIterable<T> {
     private readonly getSource: () => Awaitable<AwaitableIterable<T>>;

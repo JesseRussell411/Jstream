@@ -60,8 +60,7 @@ import {
     isIterable,
     isStandardCollection,
 } from "./privateUtils/typeGuards";
-import { SortedJstream } from "./SortedJstream";
-import { reverseOrder, smartComparator } from "./sorting/sorting";
+import { multiCompare, reverseOrder, smartComparator } from "./sorting/sorting";
 import { breakSignal } from "./symbols/symbols";
 import {
     AsMap,
@@ -259,7 +258,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     /**
      * Calls the action on each item in the stream in order. Stops if the action returns {@link breakSignal}.
-     * @param action The action.
+     * @param action The action. Return {@link breakSignal} to exit the loop.
      */
     public forEach(
         action: (item: T, index: number) => void | BreakSignal
@@ -735,10 +734,39 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
+     * Concatenates to the end of the stream any items that aren't already in the stream.
+     */
+    public including<O>(other: Iterable<O>): Jstream<T | O> {
+        if (other === this) return this as Jstream<T | O>;
+
+        const self = this;
+
+        return new Jstream({}, function* () {
+            const otherSet = new Set<any>(other);
+            for (const item of self) {
+                yield item;
+                otherSet.delete(item);
+            }
+
+            for (const item of otherSet) {
+                yield item;
+            }
+        });
+    }
+
+    /**
      * Iterates the {@link Jstream}, caching the result. Returns a {@link Jstream} over that cached result.
      */
     public collapse(): Jstream<T> {
         return Jstream.from([...this]);
+    }
+
+    /**
+     * @returns a {@link Jstream} that will cache the original Jstream the first time it is iterated.
+     * This cache is iterated on subsequent iterations instead of the original.
+     */
+    public memoize(): Jstream<T> {
+        return new Jstream({}, returns(memoizeIterable(this)));
     }
 
     // =======================
@@ -1262,6 +1290,13 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
+     * Alias to {@link Jstream.toString}.
+     */
+    public get [Symbol.toStringTag]() {
+        return this.toString();
+    }
+
+    /**
      * @returns The stream as an array.
      */
     public toJSON(): readonly T[] {
@@ -1483,5 +1518,63 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             });
         }
+    }
+}
+
+export class SortedJstream<T> extends Jstream<T> {
+    /** the order to sort the items in */
+    private readonly order: readonly Order<T>[];
+    /** the order to sort the items in put into a comparator */
+    private readonly comparator: Comparator<T>;
+    /** the original getSource function */
+    private readonly getUnsortedSource: () => Iterable<T>;
+    /** the properties of the original stream */
+    private readonly unsortedProperties: JstreamProperties<T>;
+
+    public constructor(
+        order: readonly Order<T>[],
+        properties: JstreamProperties<T> = {},
+        getSource: () => Iterable<T>
+    ) {
+        super({ expensiveSource: true, freshSource: true }, () => {
+            const source = getSource();
+            let arr: T[];
+            if (properties.freshSource && isArray(source)) {
+                arr = source;
+            } else {
+                arr = [...source];
+            }
+            arr.sort(this.comparator);
+            return arr;
+        });
+
+        this.getUnsortedSource = getSource;
+        this.unsortedProperties = properties;
+        this.order = order;
+        this.comparator = multiCompare(order);
+    }
+
+    /** Sorts the stream by the given comparator in ascending order after all previous sorts. */
+    public thenBy(comparator: Comparator<T>): SortedJstream<T>;
+    /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order after all previous sorts. */
+    public thenBy(keySelector: (item: T) => any): SortedJstream<T>;
+    public thenBy(order: Order<T>): SortedJstream<T> {
+        return new SortedJstream<T>(
+            [...this.order, order],
+            this.unsortedProperties,
+            this.getUnsortedSource
+        );
+    }
+
+    /** Sorts the stream by the given comparator in descending order after all previous sorts. */
+    public thenByDescending(comparator: Comparator<T>): SortedJstream<T>;
+    /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order after all previous sorts. */
+    public thenByDescending(keySelector: (item: T) => any): SortedJstream<T>;
+    public thenByDescending(order: Order<T>): SortedJstream<T> {
+        return new SortedJstream<T>(
+            [...this.order, reverseOrder(order)],
+            this.unsortedProperties,
+            this.getUnsortedSource
+        );
     }
 }
