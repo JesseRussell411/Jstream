@@ -1000,7 +1000,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     public async toJstream(): Promise<Jstream<T | Awaited<T>>> {
-        return Jstream.from((await this.toStandardCollection()) as Iterable<T>);
+        return Jstream.over((await this.toStandardCollection()) as Iterable<T>);
     }
 
     public mkString(): Promise<string>;

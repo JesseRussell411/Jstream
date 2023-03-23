@@ -1,7 +1,7 @@
 import fs from "fs/promises";
-import Stream from "../Stream";
+import Jstream from "../src/Jstream";
 
-import { lazy } from "../utils";
+import { lazy } from "../src/privateUtils/functional";
 
 export interface Customer {
     id: number;
@@ -26,11 +26,8 @@ export interface Customer {
     bad_text: string;
 }
 
-export const getCustomers = lazy(async (): Promise<Stream<Customer>> => {
+export const getCustomers = lazy(async (): Promise<Jstream<Customer>> => {
     const data = await fs.readFile("./testData/customerData.json");
     const customers = JSON.parse(data.toString()) as any[];
-    return new Stream(() => customers, {
-        immutable: true,
-        count: customers.length,
-    });
+    return Jstream.over(customers);
 });

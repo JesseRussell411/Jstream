@@ -1255,6 +1255,21 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get min(): {
         /**
+         * @returns The smallest item in the stream according to {@link smartComparator}
+         * or undefined if the stream is empty.
+         */
+        (): T | undefined;
+        /**
+         * @returns The smallest item in the stream according to the given comparator or
+         * undefined if the stream is empty.
+         */
+        (comparator: Comparator<T>): T | undefined;
+        /**
+         * @returns The smallest item in the stream according to the given key selector
+         * and {@link smartComparator} or undefined if the stream is empty.
+         */
+        (keySelector: (item: T) => any): T | undefined;
+        /**
          * Finds the smallest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
@@ -1270,15 +1285,62 @@ export default class Jstream<T> implements Iterable<T> {
          */
         (count: number | bigint, keySelector: (item: T) => any): T[];
     } {
-        return (
-            count: number | bigint,
-            order: Order<T> = smartComparator
-        ): T[] => {
-            return min(this, count, order);
-        };
+        return ((
+            ...args:
+                | [number | bigint, Order<T>]
+                | [number | bigint]
+                | [Order<T>]
+                | []
+        ) => {
+            if (typeof args[0] === "number" || typeof args[0] === "bigint") {
+                return min(this, args[0], args[1] ?? smartComparator);
+            } else {
+                return min(this, 1, args[0] ?? smartComparator)[0];
+            }
+        }) as any;
     }
 
+    // public get max(): {
+    //     /**
+    //      * Finds the largest items in the stream using {@link smartComparator}.
+    //      * @param count How many item to find (unless the stream has less items than that.)
+    //      */
+    //     (count: number | bigint): T[];
+    //     /**
+    //      * Finds the largest items in the stream using the given comparator.
+    //      * @param count How many item to find (unless the stream has less items than that.)
+    //      */
+    //     (count: number | bigint, comparator: Comparator<T>): T[];
+    //     /**
+    //      * Finds the largest items in the stream using the mapping from the given key selector and {@link smartComparator}.
+    //      * @param count How many item to find (unless the stream has less items than that.)
+    //      */
+    //     (count: number | bigint, keySelector: (item: T) => any): T[];
+    // } {
+    //     return (
+    //         count: number | bigint,
+    //         order: Order<T> = smartComparator
+    //     ): T[] => {
+    //         return min(this, count, reverseOrder(order));
+    //     };
+    // }
+
     public get max(): {
+        /**
+         * @returns The largest item in the stream according to {@link smartComparator}
+         * or undefined if the stream is empty.
+         */
+        (): T | undefined;
+        /**
+         * @returns The largest item in the stream according to the given comparator or
+         * undefined if the stream is empty.
+         */
+        (comparator: Comparator<T>): T | undefined;
+        /**
+         * @returns The largest item in the stream according to the given key selector
+         * and {@link smartComparator} or undefined if the stream is empty.
+         */
+        (keySelector: (item: T) => any): T | undefined;
         /**
          * Finds the largest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
@@ -1295,12 +1357,27 @@ export default class Jstream<T> implements Iterable<T> {
          */
         (count: number | bigint, keySelector: (item: T) => any): T[];
     } {
-        return (
-            count: number | bigint,
-            order: Order<T> = smartComparator
-        ): T[] => {
-            return min(this, count, reverseOrder(order));
-        };
+        return ((
+            ...args:
+                | [number | bigint, Order<T>]
+                | [number | bigint]
+                | [Order<T>]
+                | []
+        ) => {
+            if (typeof args[0] === "number" || typeof args[0] === "bigint") {
+                return min(
+                    this,
+                    args[0],
+                    reverseOrder(args[1] ?? smartComparator)
+                );
+            } else {
+                return min(
+                    this,
+                    1,
+                    reverseOrder(args[0] ?? smartComparator)
+                )[0];
+            }
+        }) as any;
     }
 
     /**

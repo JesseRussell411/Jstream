@@ -1,6 +1,6 @@
-import Stream from "../Stream";
-import { lazy, random } from "../utils";
 import fs from "fs/promises";
+import Jstream from "../src/Jstream";
+import { lazy } from "../src/privateUtils/functional";
 
 // const productNames = [
 //     "power blaster 9000",
@@ -57,11 +57,8 @@ export interface Product {
     price: number;
 }
 
-export const getProducts = lazy(async (): Promise<Stream<Product>> => {
+export const getProducts = lazy(async (): Promise<Jstream<Product>> => {
     const data = await fs.readFile("./testData/productData.json");
     const products = JSON.parse(data.toString()) as any[];
-    return new Stream(() => products, {
-        immutable: true,
-        count: products.length,
-    });
+    return Jstream.over(products);
 });
