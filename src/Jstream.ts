@@ -56,6 +56,8 @@ export type JstreamProperties<_> = Readonly<
         expensiveSource: boolean;
     }>
 >;
+// TODO rename to Tstream
+// TODO merge, loose and strict; join(Iterable<T> delim) or interleave or insertInBetween, whatever name works
 
 export default class Jstream<T> implements Iterable<T> {
     private readonly getSource: () => Iterable<T>;
@@ -174,6 +176,32 @@ export default class Jstream<T> implements Iterable<T> {
         }
     }
 
+    // TODO docs
+    public static get generate() {
+        return <T>(
+            generator: T | ((index: number) => T),
+            count: number | bigint = Infinity
+        ): Jstream<T> => {
+            if (typeof count === "bigint") {
+                return this.generate(generator, Number(count));
+            }
+
+            if (Number.isFinite(count)) requireInteger(count);
+            requireNonNegative(count);
+            return new Jstream({}, function* () {
+                if (generator instanceof Function) {
+                    for (let i = 0; i < count; i++) {
+                        yield generator(i);
+                    }
+                } else {
+                    for (let i = 0; i < count; i++) {
+                        yield generator;
+                    }
+                }
+            });
+        };
+    }
+
     /**
      * @returns A Jstream over a range of integers from start to end, incremented by step.
      */
@@ -268,6 +296,7 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    // TODO index by other things
     /**
      * Maps each item in the stream to a tuple containing the item's index and then the item in that order.
      */
@@ -503,16 +532,23 @@ export default class Jstream<T> implements Iterable<T> {
 
             const self = this;
             return new Jstream({}, function* () {
-                const iterator = self[Symbol.iterator]();
+                const source = self.getSource();
+                if (isArray(source)) {
+                    for (let i = Number(count); i < source.length; i++) {
+                        yield source[i] as T;
+                    }
+                } else {
+                    const iterator = source[Symbol.iterator]();
 
-                for (let i = 0n; i < count; i++) {
-                    if (iterator.next().done) return;
-                }
+                    for (let i = 0n; i < count; i++) {
+                        if (iterator.next().done) return;
+                    }
 
-                let next: IteratorResult<T>;
+                    let next: IteratorResult<T>;
 
-                while (!(next = iterator.next()).done) {
-                    yield next.value;
+                    while (!(next = iterator.next()).done) {
+                        yield next.value;
+                    }
                 }
             });
         };
@@ -612,6 +648,7 @@ export default class Jstream<T> implements Iterable<T> {
 
             const self = this;
             return new Jstream({}, function* () {
+                // TODO use a window if source isn't an array
                 const array = self.asArray();
                 if (count >= array.length) return;
                 for (let i = array.length - count; i < array.length; i++) {
@@ -1300,31 +1337,6 @@ export default class Jstream<T> implements Iterable<T> {
         }) as any;
     }
 
-    // public get max(): {
-    //     /**
-    //      * Finds the largest items in the stream using {@link smartComparator}.
-    //      * @param count How many item to find (unless the stream has less items than that.)
-    //      */
-    //     (count: number | bigint): T[];
-    //     /**
-    //      * Finds the largest items in the stream using the given comparator.
-    //      * @param count How many item to find (unless the stream has less items than that.)
-    //      */
-    //     (count: number | bigint, comparator: Comparator<T>): T[];
-    //     /**
-    //      * Finds the largest items in the stream using the mapping from the given key selector and {@link smartComparator}.
-    //      * @param count How many item to find (unless the stream has less items than that.)
-    //      */
-    //     (count: number | bigint, keySelector: (item: T) => any): T[];
-    // } {
-    //     return (
-    //         count: number | bigint,
-    //         order: Order<T> = smartComparator
-    //     ): T[] => {
-    //         return min(this, count, reverseOrder(order));
-    //     };
-    // }
-
     public get max(): {
         /**
          * @returns The largest item in the stream according to {@link smartComparator}
@@ -1463,6 +1475,25 @@ export default class Jstream<T> implements Iterable<T> {
             }
         };
     }
+
+    // TODO finish
+    // public get at() {
+    //     return (index: number | bigint): T | undefined => {
+    //         const source = this.getSource();
+    //         if (isArray(source)){
+    //             return source.at(Number(index));
+    //         } else if (i < 0) {
+                
+    //             let i = typeof index === "number" ? 0 : 0n;
+
+    //             i = 
+    //             for(const item of source){
+
+    //             }
+
+    //         }
+    //     };
+    // }
 
     /**
      * @returns The stream as an {@link AsyncJstream}.

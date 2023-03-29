@@ -92,6 +92,33 @@ async function main() {
 
     use(ids);
 
+
+
+    let flag = false;
+    const jsssss = Jstream.over((function*(){
+        yield 1;
+        yield 2;
+        yield * [3,4,5,6,7,8];
+        if (flag) yield 42;
+    })());
+
+    console.log(jsssss.asArray());
+    console.log(jsssss.asArray());
+    console.log(jsssss.asArray());
+    console.log(jsssss.asArray());
+    console.log(jsssss.asArray());
+    flag = true;
+    console.log(jsssss.toArray());
+    console.log(jsssss.toArray());
+    console.log(jsssss.toArray());
+    console.log(jsssss.toArray());
+    console.log(jsssss.toArray());
+
+
+    console.log(Jstream.generate(i => i * 2).take(10).toArray());
+    Jstream.generate(42,42).indexed()
+
+    
     
 }
 main();
