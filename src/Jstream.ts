@@ -634,6 +634,16 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    /**
+     * Skips items from stream until one causes the condition to return true.
+     * Takes the rest including the item that caused the condition to return false.
+     */
+    public get skipUntil() {
+        return (condition: (item: T, index: number) => boolean): Jstream<T> => {
+            return this.skipWhile((item, index) => !condition(item, index));
+        };
+    }
+
     /** Takes the given number of items from the stream and skips the rest. */
     public get take() {
         return (count: number | bigint): Jstream<T> => {
@@ -687,6 +697,13 @@ export default class Jstream<T> implements Iterable<T> {
                     index++;
                 }
             });
+        };
+    }
+
+    /** Takes items from stream until one causes the condition to return true. The rest are skipped including the item that caused the condition to return false. */
+    public get takeUntil() {
+        return (condition: (item: T, index: number) => boolean): Jstream<T> => {
+            return this.takeWhile((item, index) => !condition(item, index));
         };
     }
 
