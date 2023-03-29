@@ -1,0 +1,1 @@
+export type RemoveFromUnion<Union, T> = Union extends T ? never : Union;

@@ -4,6 +4,7 @@ import { pick } from "../src/privateUtils/objects";
 import { getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
 import { getPurchases } from "../testData/purchases";
+use(inspect);
 
 /** stops unused errors */
 function use(..._things: any): void {}
@@ -20,10 +21,6 @@ async function main() {
             (r, c) => r / c
         )
     );
-
-    
-
-
 
     const testtest = Jstream.of(
         undefined,
@@ -74,34 +71,34 @@ async function main() {
 
     console.log({ map, obj2 });
 
-    const customers = customerData.groupJoin(
-        purchases.join(
-            products,
-            purc => purc.productID,
-            prod => prod.id,
-            (purc, prod) => ({ ...purc, ...pick(prod, ["name", "price"]) })
-        ),
-        c => c.id,
-        p => p.customerID,
-        (c, p) => ({ ...c, purchases: p })
-    ).collapse();
+    const customers = customerData
+        .groupJoin(
+            purchases.join(
+                products,
+                purc => purc.productID,
+                prod => prod.id,
+                (purc, prod) => ({ ...purc, ...pick(prod, ["name", "price"]) })
+            ),
+            c => c.id,
+            p => p.customerID,
+            (c, p) => ({ ...c, purchases: p })
+        )
+        .collapse();
     use(customers);
-
-
 
     const ids = customers.map<number>(c => c.id).indexed();
 
     use(ids);
 
-
-
     let flag = false;
-    const jsssss = Jstream.over((function*(){
-        yield 1;
-        yield 2;
-        yield * [3,4,5,6,7,8];
-        if (flag) yield 42;
-    })());
+    const jsssss = Jstream.over(
+        (function* () {
+            yield 1;
+            yield 2;
+            yield* [3, 4, 5, 6, 7, 8];
+            if (flag) yield 42;
+        })()
+    );
 
     console.log(jsssss.asArray());
     console.log(jsssss.asArray());
@@ -115,17 +112,19 @@ async function main() {
     console.log(jsssss.toArray());
     console.log(jsssss.toArray());
 
+    console.log(
+        Jstream.generate(i => i * 2)
+            .take(10)
+            .toArray()
+    );
+    Jstream.generate(42, 42).indexed();
 
-    console.log(Jstream.generate(i => i * 2).take(10).toArray());
-    Jstream.generate(42,42).indexed()
-
-
-    const cbycity = customers.groupBy(c => c.city);
-    console.log(inspect(cbycity.toArrayRecursive(),false, null, true));
-
-
-
-    
-    
+    console.log(
+        customers
+        .where(c => c.purchases.length, "lessThan", 3).map(c => ({...c, pc: c.purchases.length}))
+            .select(["first_name", "last_name", "state", "pc"])
+            .take(5)
+            .toArray()
+    );
 }
 main();

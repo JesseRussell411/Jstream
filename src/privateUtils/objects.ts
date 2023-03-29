@@ -1,4 +1,3 @@
-import { ValueOf } from "../types/objects";
 
 export function getOwnPropertyKeys<K extends keyof any>(
     object: Record<K, any>
@@ -22,15 +21,23 @@ export function getOwnEntries<K extends keyof any, V>(
 }
 
 /** Runtime equivalent to {@link Pick}. */
-export function pick<
-    O extends object,
-    F extends readonly (keyof O & (string | symbol))[]
->(object: O, fields: F): Pick<O, ValueOf<F>> {
+export function pick<T, K extends keyof T>(
+    object: T,
+    fields: Iterable<K>
+): Pick<T, K> {
     const result: any = {};
-    const ownKeys = new Set(Reflect.ownKeys(object));
+    const ownKeys = new Set(Reflect.ownKeys(object ?? {}));
+
+    function sanitizeField(field: any): string | symbol {
+        if (typeof field !== "string" && typeof field !== "symbol") {
+            return `${field}`;
+        } else {
+            return field;
+        }
+    }
 
     for (const field of fields) {
-        if (ownKeys.has(field)) {
+        if (ownKeys.has(sanitizeField(field))) {
             result[field] = object[field];
         }
     }

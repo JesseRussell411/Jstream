@@ -20,13 +20,19 @@ import {
     iterableFromIteratorGetter,
     range,
 } from "./privateUtils/iterable";
+import { pick } from "./privateUtils/objects";
 import { makeString } from "./privateUtils/strings";
 import {
     isArray,
     isIterable,
     isStandardCollection,
 } from "./privateUtils/typeGuards";
-import { multiCompare, reverseOrder, smartComparator } from "./sorting/sorting";
+import {
+    asComparator,
+    multiCompare,
+    reverseOrder,
+    smartComparator,
+} from "./sorting/sorting";
 import { breakSignal } from "./symbols/symbols";
 import {
     AsMap,
@@ -64,13 +70,20 @@ export type JstreamToArrayRecursive<T> = T extends Jstream<infer SubT>
     ? JstreamToArrayRecursive<SubT>[]
     : T;
 
+export type Comparisons =
+    | "equals"
+    | "lessThan"
+    | "greaterThan"
+    | "lessThanOrEqualTo"
+    | "greaterThanOrEqualTo";
 // T extends Jstream<infer SubT>
 //     ? (SubT extends Jstream<any> ? JstreamToArrayRecursive<SubT> : SubT)[]
 //     : T extends readonly (infer SubT)[]
 //     ? (SubT extends Jstream<any> ? JstreamToArrayRecursive<SubT> : SubT)[]
 //     : never;
 
-// TODO rename to Tstream
+// TODO rename to Tstream !nevermind, taken, think of something else
+// TODO select as in select(["state", "zip", "nestedInfo": ["someNestedThing", "maybe not this part"]])
 // TODO merge, loose and strict; join(Iterable<T> delim) or interleave or insertInBetween, whatever name works
 
 export default class Jstream<T> implements Iterable<T> {
@@ -310,6 +323,21 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    // TODO? nested select(types will be hardest part), function select (can be done with map then select)
+    // nested select:
+    // Jstream.of({foo: 1, bar: 2, hello: 5, biz: {baz: 3, bob: 6, bing: 9}, rock: 9}).select(["foo", "bar"], {"biz": ["baz", "bing"]}) --> [{foo: 1, bar: 2, biz: {baz: 3, bing: 9}}]
+    /**
+     * Select fields from each object.
+     */
+    public get select() {
+        const self = this;
+        return function Jstream_select<Field extends keyof T>(
+            fields: readonly Field[]
+        ): Jstream<Pick<T, Field>> {
+            return self.map(item => pick(item, fields));
+        };
+    }
+
     // TODO index by other things
     /**
      * Maps each item in the stream to a tuple containing the item's index and then the item in that order.
@@ -334,6 +362,80 @@ export default class Jstream<T> implements Iterable<T> {
                 for (const item of self) {
                     if (condition(item, i)) yield item as R;
                     i++;
+                }
+            });
+        };
+    }
+    public get where(): {
+        <R = T>(
+            field: (item: T, index: number) => any,
+            comp: Comparisons | "is",
+            value: any,
+            order?: Order<T>
+        ): Jstream<R>;
+        <Field extends keyof T, R = T>(
+            field: Field,
+            comp: "is",
+            value: T[Field],
+            order?: undefined
+        ): Jstream<R>;
+        <Field extends keyof T, R = T>(
+            field: Field,
+            comp: Comparisons,
+            value: any,
+            order?: Order<T>
+        ): Jstream<R>;
+    } {
+        const self = this;
+        return function Jstream_where(
+            field: any,
+            cond: Comparisons | "is",
+            value: any,
+            order = smartComparator
+        ) {
+            return new Jstream({}, function* () {
+                const source = self.getSource();
+
+                if (
+                    cond === "is" &&
+                    !(field instanceof Function) &&
+                    source instanceof Map &&
+                    (field === 0 || field === "0")
+                ) {
+                    const item = source.get(value);
+                    if (item !== undefined) yield item;
+                } else {
+                    const comparator = asComparator(order);
+
+                    const conditions: Record<
+                        Comparisons | "is",
+                        (a: any, b: any) => boolean
+                    > = {
+                        is: (a, b) => Object.is(a, b),
+                        equals: (a, b) => comparator(a, b) === 0,
+                        lessThan: (a, b) => comparator(a, b) < 0,
+                        lessThanOrEqualTo: (a, b) => comparator(a, b) <= 0,
+                        greaterThan: (a, b) => comparator(a, b) > 0,
+                        greaterThanOrEqualTo: (a, b) => comparator(a, b) >= 0,
+                    };
+                    const condition = conditions[cond];
+
+                    if (field instanceof Function){
+                        let i = 0;
+                        for (const item of source) {
+                            const map = field(item, i);
+                            if (condition(map, value)){
+                                yield item;
+                            }
+                            i++;
+                        }
+                    } else {
+                        for (const item of source) {
+                            if (condition((item as any)[field], value)) {
+                                yield item;
+                            }
+                        }
+                    }
                 }
             });
         };
@@ -744,15 +846,38 @@ export default class Jstream<T> implements Iterable<T> {
             keySelector: (item: T, index: number) => K,
             groupSelector: (group: Jstream<T>, key: K) => G
         ): Jstream<readonly [K, G]>;
+
+        /**
+         * Groups the items in the stream by the given key.
+         */
+        <Field extends keyof T>(field: Field): Jstream<
+            readonly [T[Field], Jstream<T>]
+        >;
+
+        /**
+         * Groups the items in the stream by the given key.
+         *
+         * @param groupSelector Mapping applied to each group.
+         */
+        <Field extends keyof T, G>(
+            field: Field,
+            groupSelector: (group: Jstream<T>, key: Field) => G
+        ): Jstream<readonly [T[Field], G]>;
     } {
-        return <K, G>(
-            keySelector: (item: T, index: number) => K,
-            groupSelector?: (group: Jstream<T>, key: K) => G
-        ): Jstream<readonly [K, Jstream<T> | G]> => {
+        return <G>(
+            keySelectorOrField: ((item: T, index: number) => any) | keyof T,
+            groupSelector?: (group: Jstream<T>, key: any) => G
+        ): Jstream<readonly [any, Jstream<T> | G]> => {
             const newGetSource = () => {
-                const groups = new Map<K, any>();
+                const groups = new Map<any, any>();
 
                 let index = 0;
+
+                const keySelector =
+                    keySelectorOrField instanceof Function
+                        ? keySelectorOrField
+                        : (item: T) => item[keySelectorOrField];
+
                 for (const item of this) {
                     const key = keySelector(item, index);
 
@@ -875,9 +1000,34 @@ export default class Jstream<T> implements Iterable<T> {
 
     // TODO better description
     /**
-     * Flattens the stream.
+     * Flattens the stream, only includes {@link Jstream}s and {@link Array}s. Use {@link flatten} to include every {@link Iterable}.
      */
     public get flat() {
+        return (): Jstream<
+            T extends Jstream<infer SubT>
+                ? SubT
+                : T extends readonly (infer SubT)[]
+                ? SubT
+                : T
+        > => {
+            const self = this;
+            return new Jstream({}, function* () {
+                for (const item of self) {
+                    if (item instanceof Jstream || Array.isArray(item)) {
+                        yield* item as any;
+                    } else {
+                        yield item;
+                    }
+                }
+            });
+        };
+    }
+
+    // TODO better description
+    /**
+     * Flattens the stream including strings, which are {@link Iterable}. Use {@link flat} to ignore strings.
+     */
+    public get flatten() {
         return (): Jstream<T extends Iterable<infer SubT> ? SubT : T> => {
             const self = this;
             return new Jstream({}, function* () {
@@ -1632,16 +1782,23 @@ export default class Jstream<T> implements Iterable<T> {
         /**
          * @returns The string values of each item in the stream concatenated together with the string value of the given separator between them.
          * @param start Concatenated onto the start of the resulting string.
-         * @param end If provided: concatenated onto the end of the resulting string.
          */
-        (start: any, separator: any, end?: any): string;
+        (start: any, separator: any): string;
+        /**
+         * @returns The string values of each item in the stream concatenated together with the string value of the given separator between them.
+         * @param start Concatenated onto the start of the resulting string.
+         * @param end Concatenated onto the end of the resulting string.
+         */
+        (start: any, separator: any, end: any): string;
     } {
-        return (startOrSeparator?: any, separator?: any, end?: any): string => {
-            if (arguments.length === 1) {
-                const separator = startOrSeparator;
+        return (...args: [any, any, any] | [any, any] | [any] | []): string => {
+            if (args.length === 0) {
+                return makeString(this.getSource());
+            } else if (args.length === 1) {
+                const separator = args[0];
                 return makeString(this.getSource(), separator);
             } else {
-                const start = startOrSeparator;
+                const [start, separator, end] = args;
                 return makeString(this.getSource(), start, separator, end);
             }
         };

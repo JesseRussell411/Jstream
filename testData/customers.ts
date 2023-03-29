@@ -19,7 +19,7 @@ export interface Customer {
         | "Polygender";
     ip_address: string;
     city: string;
-    state: string;
+    state: "AZ" | "MA" | "CA" | "NC" | "NY" | "MD" | "IN" | "FL" | "WA" | "VA" | "TN" | "MO" | "DC" | "LA" | "IA" | "SC" | "KS" | "GA" | "MI" | "DE" | "NV" | "TX" | "PA" | "CT" | "MT" | "MN" | "IL" | "OH" | "NJ" | "AK" | "KY" | "WV" | "WI" | "UT" | "CO" | "NE" | "ID" | "MS" | "OR" | "AL" | "NH" | "OK" | "ND" | "HI" | "NM" | "AR" | "RI" | "SD";
     security_enabled: boolean;
     profile_pic: string;
     company_name: string;
