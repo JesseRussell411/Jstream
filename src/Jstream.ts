@@ -56,6 +56,20 @@ export type JstreamProperties<_> = Readonly<
         expensiveSource: boolean;
     }>
 >;
+
+// tuple support
+export type JstreamToArrayRecursive<T> = T extends Jstream<infer SubT>
+    ? JstreamToArrayRecursive<SubT>[]
+    : T extends readonly (infer SubT)[]
+    ? JstreamToArrayRecursive<SubT>[]
+    : T;
+
+// T extends Jstream<infer SubT>
+//     ? (SubT extends Jstream<any> ? JstreamToArrayRecursive<SubT> : SubT)[]
+//     : T extends readonly (infer SubT)[]
+//     ? (SubT extends Jstream<any> ? JstreamToArrayRecursive<SubT> : SubT)[]
+//     : never;
+
 // TODO rename to Tstream
 // TODO merge, loose and strict; join(Iterable<T> delim) or interleave or insertInBetween, whatever name works
 
@@ -676,11 +690,34 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    /**
+     * @returns The first item or undefined if empty.
+     */
+    public get first() {
+        return (): T | undefined => {
+            for (const item of this) return item;
+            return undefined;
+        };
+    }
+
+    /**
+     * @returns The final item or undefined if empty.
+     */
+    public get final() {
+        return (): T | undefined => {
+            let final: T | undefined = undefined;
+            for (const item of this) final = item;
+            return final;
+        };
+    }
+
     public get groupBy(): {
         /**
          * Groups the items in the stream by the given keySelector.
          */
-        <K>(keySelector: (item: T, index: number) => K): Jstream<[K, T[]]>;
+        <K>(keySelector: (item: T, index: number) => K): Jstream<
+            readonly [K, Jstream<T>]
+        >;
         /**
          * Groups the items in the stream by the given keySelector.
          *
@@ -688,13 +725,13 @@ export default class Jstream<T> implements Iterable<T> {
          */
         <K, G>(
             keySelector: (item: T, index: number) => K,
-            groupSelector: (group: T[], key: K) => G
-        ): Jstream<[K, G]>;
+            groupSelector: (group: Jstream<T>, key: K) => G
+        ): Jstream<readonly [K, G]>;
     } {
         return <K, G>(
             keySelector: (item: T, index: number) => K,
-            groupSelector?: (group: T[], key: K) => G
-        ): Jstream<[K, T[] | G]> => {
+            groupSelector?: (group: Jstream<T>, key: K) => G
+        ): Jstream<readonly [K, Jstream<T> | G]> => {
             const newGetSource = () => {
                 const groups = new Map<K, any>();
 
@@ -712,6 +749,11 @@ export default class Jstream<T> implements Iterable<T> {
                     index++;
                 }
 
+                // convert all the groups to Jstreams
+                for (const entry of groups) {
+                    groups.set(entry[0], new Jstream({}, returns(entry[1])));
+                }
+
                 if (groupSelector !== undefined) {
                     for (const entry of groups) {
                         const group = groupSelector(entry[1], entry[0]);
@@ -725,7 +767,46 @@ export default class Jstream<T> implements Iterable<T> {
             return new Jstream(
                 { expensiveSource: true, freshSource: true },
                 newGetSource
-            );
+            ) as any;
+        };
+    }
+
+    // TODO move to special GroupedJstream
+    /**
+     * @deprecated because of TODO
+     */
+    public get getGroups() {
+        return (
+            groups: Iterable<T extends EntryLikeKey<infer K> ? K : never>
+        ): Jstream<T> => {
+            const self = this;
+            return new Jstream({}, function* () {
+                const source = self.getSource();
+                if (source instanceof Map) {
+                    for (const group of groups) {
+                        yield [group, source.get(group)] as T;
+                    }
+                } else {
+                    const groupSet = new Set(groups);
+                    for (const item of self) {
+                        if (groupSet.has((item as any)?.[0])) {
+                            yield item;
+                        }
+                    }
+                }
+            });
+        };
+    }
+
+    // TODO move to special GroupedJstream
+    /**
+     * @deprecated because of TODO
+     */
+    public get getGroup() {
+        return (
+            group: T extends EntryLikeKey<infer K> ? K : never
+        ): T extends EntryLikeValue<infer G> ? G | undefined : never => {
+            return (this.getGroups([group]).first() as any)?.[1];
         };
     }
 
@@ -889,6 +970,7 @@ export default class Jstream<T> implements Iterable<T> {
             const iterator = this[Symbol.iterator]();
             let next = iterator.next();
 
+            // TODO maybe just return undefined instead
             if (next.done) {
                 throw new Error(
                     "cannot reduce empty iterable. no initial value"
@@ -1218,6 +1300,23 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    public get toArrayRecursive(): () => JstreamToArrayRecursive<this> {
+        return (): JstreamToArrayRecursive<this> => {
+            return recursive(this) as any;
+        };
+        function recursive(items: Jstream<any> | readonly any[]): any[] {
+            const result: any[] = [];
+            for (const item of items) {
+                if (item instanceof Jstream || isArray(item)) {
+                    result.push(recursive(item));
+                } else {
+                    result.push(item);
+                }
+            }
+            return result;
+        }
+    }
+
     /**
      * Creates a view of the stream as one of javascript's standard collections (like {@link Array}, {@link Set}, or {@link Map}).
      * This will usually entail copying the stream like {@link Jstream.toStandardCollection} but not always so the result is not safe to modify.
@@ -1483,10 +1582,10 @@ export default class Jstream<T> implements Iterable<T> {
     //         if (isArray(source)){
     //             return source.at(Number(index));
     //         } else if (i < 0) {
-                
+
     //             let i = typeof index === "number" ? 0 : 0n;
 
-    //             i = 
+    //             i =
     //             for(const item of source){
 
     //             }

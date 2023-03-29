@@ -1,3 +1,4 @@
+import { inspect } from "util";
 import Jstream from "../src/Jstream";
 import { pick } from "../src/privateUtils/objects";
 import { getCustomers } from "../testData/customers";
@@ -117,6 +118,12 @@ async function main() {
 
     console.log(Jstream.generate(i => i * 2).take(10).toArray());
     Jstream.generate(42,42).indexed()
+
+
+    const cbycity = customers.groupBy(c => c.city);
+    console.log(inspect(cbycity.toArrayRecursive(),false, null, true));
+
+
 
     
     
