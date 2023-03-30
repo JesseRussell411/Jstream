@@ -121,10 +121,20 @@ async function main() {
 
     console.log(
         customers
-        .where(c => c.purchases.length, "lessThan", 3).map(c => ({...c, pc: c.purchases.length}))
+            .where(c => c.purchases.length, "lessThan", 3)
+            .map(c => ({ ...c, pc: c.purchases.length }))
+            .map(c => pick(c, ["first_name", "last_name", "state", "pc"]))
             .select(["first_name", "last_name", "state", "pc"])
+            .skip(3)
             .take(5)
-            .toArray()
+            .skipUntil(() => {
+                throw new Error("Oh no");
+            })
+            .where("state", "is", "AK")
+            .groupBy("state")
+            .toArrayRecursive()[0]
     );
+
+    const groups = Jstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
 }
 main();

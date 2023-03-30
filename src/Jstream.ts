@@ -1,5 +1,6 @@
 import AsyncJstream from "./AsyncJstream";
 import {
+    asArray,
     asStandardCollection,
     fisherYatesShuffle,
     groupBy,
@@ -63,11 +64,31 @@ export type JstreamProperties<_> = Readonly<
     }>
 >;
 
-// tuple support
+// TODO tuple support
 export type JstreamToArrayRecursive<T> = T extends Jstream<infer SubT>
     ? JstreamToArrayRecursive<SubT>[]
+    : T extends readonly []
+    ? []
+    : T extends readonly [infer TupleStart, ...infer TupleRest]
+    ? [
+          JstreamToArrayRecursive<TupleStart>,
+          ...JstreamToArrayRecursive<TupleRest>
+      ]
     : T extends readonly (infer SubT)[]
     ? JstreamToArrayRecursive<SubT>[]
+    : T;
+
+export type JstreamAsArrayRecursive<T> = T extends Jstream<infer SubT>
+    ? readonly JstreamAsArrayRecursive<SubT>[]
+    : T extends readonly []
+    ? []
+    : T extends readonly [infer TupleStart, ...infer TupleRest]
+    ? readonly [
+          JstreamAsArrayRecursive<TupleStart>,
+          ...JstreamAsArrayRecursive<TupleRest>
+      ]
+    : T extends readonly (infer SubT)[]
+    ? readonly JstreamAsArrayRecursive<SubT>[]
     : T;
 
 export type Comparisons =
@@ -420,11 +441,11 @@ export default class Jstream<T> implements Iterable<T> {
                     };
                     const condition = conditions[cond];
 
-                    if (field instanceof Function){
+                    if (field instanceof Function) {
                         let i = 0;
                         for (const item of source) {
                             const map = field(item, i);
-                            if (condition(map, value)){
+                            if (condition(map, value)) {
                                 yield item;
                             }
                             i++;
@@ -835,7 +856,7 @@ export default class Jstream<T> implements Iterable<T> {
          * Groups the items in the stream by the given keySelector.
          */
         <K>(keySelector: (item: T, index: number) => K): Jstream<
-            readonly [K, Jstream<T>]
+            readonly [key: K, group: Jstream<T>]
         >;
         /**
          * Groups the items in the stream by the given keySelector.
@@ -845,13 +866,13 @@ export default class Jstream<T> implements Iterable<T> {
         <K, G>(
             keySelector: (item: T, index: number) => K,
             groupSelector: (group: Jstream<T>, key: K) => G
-        ): Jstream<readonly [K, G]>;
+        ): Jstream<readonly [key: K, group: G]>;
 
         /**
          * Groups the items in the stream by the given key.
          */
         <Field extends keyof T>(field: Field): Jstream<
-            readonly [T[Field], Jstream<T>]
+            readonly [key: T[Field], group: Jstream<T>]
         >;
 
         /**
@@ -862,12 +883,12 @@ export default class Jstream<T> implements Iterable<T> {
         <Field extends keyof T, G>(
             field: Field,
             groupSelector: (group: Jstream<T>, key: Field) => G
-        ): Jstream<readonly [T[Field], G]>;
+        ): Jstream<readonly [key: T[Field], group: G]>;
     } {
         return <G>(
             keySelectorOrField: ((item: T, index: number) => any) | keyof T,
             groupSelector?: (group: Jstream<T>, key: any) => G
-        ): Jstream<readonly [any, Jstream<T> | G]> => {
+        ): Jstream<readonly [key: any, group: Jstream<T> | G]> => {
             const newGetSource = () => {
                 const groups = new Map<any, any>();
 
@@ -910,45 +931,6 @@ export default class Jstream<T> implements Iterable<T> {
                 { expensiveSource: true, freshSource: true },
                 newGetSource
             ) as any;
-        };
-    }
-
-    // TODO move to special GroupedJstream
-    /**
-     * @deprecated because of TODO
-     */
-    public get getGroups() {
-        return (
-            groups: Iterable<T extends EntryLikeKey<infer K> ? K : never>
-        ): Jstream<T> => {
-            const self = this;
-            return new Jstream({}, function* () {
-                const source = self.getSource();
-                if (source instanceof Map) {
-                    for (const group of groups) {
-                        yield [group, source.get(group)] as T;
-                    }
-                } else {
-                    const groupSet = new Set(groups);
-                    for (const item of self) {
-                        if (groupSet.has((item as any)?.[0])) {
-                            yield item;
-                        }
-                    }
-                }
-            });
-        };
-    }
-
-    // TODO move to special GroupedJstream
-    /**
-     * @deprecated because of TODO
-     */
-    public get getGroup() {
-        return (
-            group: T extends EntryLikeKey<infer K> ? K : never
-        ): T extends EntryLikeValue<infer G> ? G | undefined : never => {
-            return (this.getGroups([group]).first() as any)?.[1];
         };
     }
 
@@ -1473,14 +1455,46 @@ export default class Jstream<T> implements Iterable<T> {
         };
         function recursive(items: Jstream<any> | readonly any[]): any[] {
             const result: any[] = [];
+
             for (const item of items) {
-                if (item instanceof Jstream || isArray(item)) {
+                if (item instanceof Jstream || Array.isArray(item)) {
                     result.push(recursive(item));
                 } else {
                     result.push(item);
                 }
             }
+
             return result;
+        }
+    }
+
+    public get asArrayRecursive() {
+        return (): JstreamAsArrayRecursive<this> => {
+            return recursive(this);
+        };
+
+        function recursive(
+            items: Jstream<any> | readonly any[]
+        ): any {
+            if (items instanceof Jstream) return recursive(items.asArray());
+
+            const result = [];
+            let recur = false;
+            
+            for (const item of items) {
+                if (item instanceof Jstream || Array.isArray(item)) {
+                    result.push(recursive(item));
+                    recur = true;
+                } else {
+                    result.push(item);
+                }
+            }
+
+            if (recur) {
+                return result;
+            } else {
+                return items;
+            }
         }
     }
 
