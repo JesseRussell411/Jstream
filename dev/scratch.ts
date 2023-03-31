@@ -127,14 +127,13 @@ async function main() {
             .select(["first_name", "last_name", "state", "pc"])
             .skip(3)
             .take(5)
-            .skipUntil(() => {
-                throw new Error("Oh no");
-            })
             .where("state", "is", "AK")
             .groupBy("state")
-            .toArrayRecursive()[0]
+            .toArrayRecursive()
     );
 
-    const groups = Jstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
+    const groups = Jstream.range(2n, Infinity).take(5).groupBy(n => n % 2n === 0n).ifEmpty([3]);
+
+    console.log(groups.toMap());
 }
 main();

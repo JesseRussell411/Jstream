@@ -1,6 +1,5 @@
 import AsyncJstream from "./AsyncJstream";
 import {
-    asArray,
     asStandardCollection,
     fisherYatesShuffle,
     groupBy,
@@ -123,8 +122,9 @@ export default class Jstream<T> implements Iterable<T> {
      * @returns An iterator over the Jstream.
      */
     public get [Symbol.iterator]() {
-        return () => {
-            return this.getSource()[Symbol.iterator]();
+        const self = this;
+        return function Jstream_iterator() {
+            return self.getSource()[Symbol.iterator]();
         };
     }
 
@@ -255,20 +255,20 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public static range(
         start: bigint,
-        end: bigint,
+        end: bigint | number,
         step: bigint
     ): Jstream<bigint>;
     /**
      * @returns A Jstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
      */
-    public static range(start: bigint, end: bigint): Jstream<bigint>;
+    public static range(start: bigint, end: bigint | number): Jstream<bigint>;
     /**
      * @returns A Jstream over a range of integers from 0 to end, incremented by 1.
      */
     public static range(end: bigint): Jstream<bigint>;
 
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by step.
+     * @returns A Jstream over a range of numbers from start to end, incremented by step.
      */
     public static range(
         start: number | bigint,
@@ -276,35 +276,26 @@ export default class Jstream<T> implements Iterable<T> {
         step: number | bigint
     ): Jstream<number>;
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
+     * @returns A Jstream over a range of numbers from start to end, incremented by 1 or -1 if end is less than start.
      */
     public static range(
         start: number | bigint,
         end: number | bigint
     ): Jstream<number>;
+
     /**
-     * @returns A Jstream over a range of integers from 0 to end, incremented by 1.
+     * @returns A Jstream over a range of numbers from 0 to end, incremented by 1.
      */
-    public static range(end: number | bigint): Jstream<number>;
+    public static range(end: number): Jstream<number>;
 
     public static range(
-        _startOrEnd: number | bigint,
-        _end?: number | bigint,
-        _step?: number | bigint
+        ...args:
+            | [bigint | number]
+            | [bigint | number, bigint | number]
+            | [bigint | number, bigint | number, bigint | number]
     ): Jstream<number> | Jstream<bigint> {
-        if (_end === undefined) {
-            const end = _startOrEnd;
-            return Jstream.over(range(end));
-        } else if (_step === undefined) {
-            const start = _startOrEnd;
-            const end = _end;
-            return Jstream.over(range(start, end));
-        } else {
-            const start = _startOrEnd;
-            const end = _end;
-            const step = _step;
-            return Jstream.over(range(start, end, step));
-        }
+        // typescript doesn't allow using ... to supply a tuple to a function that doesn't use ...
+        return Jstream.over((range as any)(...args)) as any;
     }
 
     /**
@@ -944,15 +935,17 @@ export default class Jstream<T> implements Iterable<T> {
          */
         <R>(alternative: () => Iterable<R>): Jstream<T> | Jstream<R>;
     } {
-        return <R>(
+
+        const self = this;
+        return function ifEmpty<R>(
             alternative: Iterable<R> | (() => Iterable<R>)
-        ): Jstream<T> | Jstream<R> => {
+        ): Jstream<T> | Jstream<R> {
             return new Jstream<T | R>(
                 {
-                    expensiveSource: true,
+                    expensiveSource: true
                 },
                 () => {
-                    const source = this.getSource();
+                    const source = self.getSource();
                     const count = nonIteratedCountOrUndefined(source);
 
                     if (count !== undefined) {
@@ -1449,11 +1442,16 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    // TODO docs
     public get toArrayRecursive(): () => JstreamToArrayRecursive<this> {
-        return (): JstreamToArrayRecursive<this> => {
-            return recursive(this) as any;
+        const self = this;
+        return function toArrayRecursive() {
+            return recursive(self);
         };
-        function recursive(items: Jstream<any> | readonly any[]): any[] {
+
+        function recursive<I extends Jstream<any> | readonly any[]>(
+            items: I
+        ): JstreamToArrayRecursive<I> {
             const result: any[] = [];
 
             for (const item of items) {
@@ -1464,23 +1462,26 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             }
 
-            return result;
+            return result as any;
         }
     }
 
-    public get asArrayRecursive() {
-        return (): JstreamAsArrayRecursive<this> => {
-            return recursive(this);
+    // TODO docs
+    public get asArrayRecursive(): () => JstreamAsArrayRecursive<this> {
+        const self = this;
+        return function asArrayRecursive() {
+            return recursive(self);
         };
 
-        function recursive(
-            items: Jstream<any> | readonly any[]
-        ): any {
-            if (items instanceof Jstream) return recursive(items.asArray());
+        function recursive<I extends Jstream<any> | readonly any[]>(
+            items: I
+        ): JstreamAsArrayRecursive<I> {
+            if (items instanceof Jstream)
+                return recursive(items.asArray()) as any;
 
             const result = [];
             let recur = false;
-            
+
             for (const item of items) {
                 if (item instanceof Jstream || Array.isArray(item)) {
                     result.push(recursive(item));
@@ -1491,9 +1492,9 @@ export default class Jstream<T> implements Iterable<T> {
             }
 
             if (recur) {
-                return result;
+                return result as any;
             } else {
-                return items;
+                return items as any;
             }
         }
     }

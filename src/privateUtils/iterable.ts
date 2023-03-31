@@ -11,20 +11,23 @@ export function iterableFromIteratorGetter<T>(
     };
 }
 
-
-export function iterableFromIterator<T>(iterator: Iterator<T>): Iterable<T>{
+export function iterableFromIterator<T>(iterator: Iterator<T>): Iterable<T> {
     let returnedIterator = iterator;
     return {
-        [Symbol.iterator](){
+        [Symbol.iterator]() {
             const result = returnedIterator;
             returnedIterator = emptyIterator<T>();
             return result;
-        }
-    }
+        },
+    };
 }
 
-export function lazyIterable<T>(iterableGetter: () => Iterable<T>): Iterable<T> {
-    return iterableFromIteratorGetter(() => iterableGetter()[Symbol.iterator]());
+export function lazyIterable<T>(
+    iterableGetter: () => Iterable<T>
+): Iterable<T> {
+    return iterableFromIteratorGetter(() =>
+        iterableGetter()[Symbol.iterator]()
+    );
 }
 
 const _emptyIterator: Iterator<any> = {
@@ -64,11 +67,11 @@ export function emptyAsyncIterator<T = any>(): AsyncIterator<T> {
 /** A clone of python's range function */
 export function range(
     start: bigint,
-    end: bigint,
+    end: bigint | number,
     step: bigint
 ): Iterable<bigint>;
 /** A clone of python's range function */
-export function range(start: bigint, end: bigint): Iterable<bigint>;
+export function range(start: bigint, end: bigint | number): Iterable<bigint>;
 /** A clone of python's range function */
 export function range(end: bigint): Iterable<bigint>;
 /** A clone of python's range function */
@@ -83,53 +86,35 @@ export function range(
     end: number | bigint
 ): Iterable<number>;
 /** A clone of python's range function */
-export function range(end: number | bigint): Iterable<number>;
+export function range(end: number): Iterable<number>;
 
 /** A clone of python's range function */
 export function range(
-    _startOrEnd: number | bigint,
-    _end?: number | bigint,
-    _step?: number | bigint
-): any {
-    const useNumber =
-        typeof _startOrEnd === "number" ||
-        typeof _end === "number" ||
-        typeof _step === "number";
+    ...args:
+        | [end: number | bigint]
+        | [start: number | bigint, end: number | bigint]
+        | [start: number | bigint, end: number | bigint, step: number | bigint]
+): Iterable<number> | Iterable<bigint> {
+    if ((args.length as number) === 0)
+        throw new Error("expected at least one argument but got 0");
 
-    const ZERO = useNumber ? 0 : (0n as any);
-    const ONE = useNumber ? 1 : (1n as any);
+    let [start = 0n, end, step = 1n] =
+        args.length === 1 ? [undefined, args[0]] : args;
 
-    let start: any;
-    let end: any;
-    let step: any;
-    if (_step !== undefined) {
-        start = _startOrEnd;
-        end = _end;
-        step = _step;
-    } else if (_end !== undefined) {
-        start = _startOrEnd;
-        end = _end;
-        step = ONE;
-    } else {
-        start = ZERO;
-        end = _startOrEnd;
-        step = ONE;
-    }
-
-    if (useNumber) {
+    // use numbers if either start or step are numbers or if only end was given and end isn't a bigint
+    if (
+        typeof start === "number" ||
+        typeof end === "number" ||
+        (args.length === 1 && typeof end === "number")
+    ) {
         start = Number(start);
         end = Number(end);
         step = Number(step);
     }
 
-    if (step === ZERO) throw new Error("arg3 must not be zero");
-
-    if (step < ZERO && start < end) return emptyIterable();
-    if (step > ZERO && start > end) return emptyIterable();
-
-    const test = step > ZERO ? (i: any) => i < end : (i: any) => i > end;
+    const test = step > 0 ? (i: any) => i < end : (i: any) => i > end;
 
     return iterableFromIteratorGetter(function* () {
-        for (let i = start; test(i); i += step) yield i;
+        for (let i = start; test(i); i += step as any) yield i as any;
     });
 }

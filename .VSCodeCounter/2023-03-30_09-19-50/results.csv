@@ -1,0 +1,35 @@
+"filename", "language", "JSON with Comments", "JSON", "TypeScript", "JavaScript", "comment", "blank", "total"
+"c:\Users\jesse\vscode projects\jStream\dev\StreamableArray.ts", "TypeScript", 0, 0, 0, 0, 0, 1, 1
+"c:\Users\jesse\vscode projects\jStream\dev\scratch.ts", "TypeScript", 0, 0, 116, 0, 3, 21, 140
+"c:\Users\jesse\vscode projects\jStream\jest.config.js", "JavaScript", 0, 0, 0, 6, 1, 1, 8
+"c:\Users\jesse\vscode projects\jStream\package-lock.json", "JSON", 0, 6412, 0, 0, 0, 1, 6413
+"c:\Users\jesse\vscode projects\jStream\package.json", "JSON", 0, 35, 0, 0, 0, 1, 36
+"c:\Users\jesse\vscode projects\jStream\src\AsyncJstream.ts", "TypeScript", 0, 0, 853, 0, 46, 129, 1028
+"c:\Users\jesse\vscode projects\jStream\src\Jstream.ts", "TypeScript", 0, 0, 1496, 0, 443, 190, 2129
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\DoubleMap.ts", "TypeScript", 0, 0, 119, 0, 1, 31, 151
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\async.ts", "TypeScript", 0, 0, 35, 0, 0, 6, 41
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\data.ts", "TypeScript", 0, 0, 510, 0, 18, 98, 626
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\errorGuards.ts", "TypeScript", 0, 0, 52, 0, 34, 11, 97
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\functional.ts", "TypeScript", 0, 0, 30, 0, 18, 6, 54
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\iterable.ts", "TypeScript", 0, 0, 93, 0, 11, 17, 121
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\objects.ts", "TypeScript", 0, 0, 39, 0, 1, 7, 47
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\strings.ts", "TypeScript", 0, 0, 95, 0, 4, 28, 127
+"c:\Users\jesse\vscode projects\jStream\src\privateUtils\typeGuards.ts", "TypeScript", 0, 0, 47, 0, 2, 12, 61
+"c:\Users\jesse\vscode projects\jStream\src\sorting\sorting.ts", "TypeScript", 0, 0, 101, 0, 91, 42, 234
+"c:\Users\jesse\vscode projects\jStream\src\symbols\symbols.ts", "TypeScript", 0, 0, 2, 0, 1, 2, 5
+"c:\Users\jesse\vscode projects\jStream\src\types\async.d.ts", "TypeScript", 0, 0, 3, 0, 3, 3, 9
+"c:\Users\jesse\vscode projects\jStream\src\types\collections.d.ts", "TypeScript", 0, 0, 81, 0, 1, 11, 93
+"c:\Users\jesse\vscode projects\jStream\src\types\literals.d.ts", "TypeScript", 0, 0, 7, 0, 3, 1, 11
+"c:\Users\jesse\vscode projects\jStream\src\types\objects.d.ts", "TypeScript", 0, 0, 4, 0, 2, 1, 7
+"c:\Users\jesse\vscode projects\jStream\src\types\sorting.d.ts", "TypeScript", 0, 0, 2, 0, 2, 1, 5
+"c:\Users\jesse\vscode projects\jStream\src\types\symbols.d.ts", "TypeScript", 0, 0, 1, 0, 1, 0, 2
+"c:\Users\jesse\vscode projects\jStream\src\types\union.d.ts", "TypeScript", 0, 0, 1, 0, 0, 0, 1
+"c:\Users\jesse\vscode projects\jStream\testData\customerData.json", "JSON", 0, 1000, 0, 0, 0, 0, 1000
+"c:\Users\jesse\vscode projects\jStream\testData\customers.ts", "TypeScript", 0, 0, 30, 0, 0, 4, 34
+"c:\Users\jesse\vscode projects\jStream\testData\productData.json", "JSON", 0, 162, 0, 0, 0, 0, 162
+"c:\Users\jesse\vscode projects\jStream\testData\products.ts", "TypeScript", 0, 0, 13, 0, 46, 6, 65
+"c:\Users\jesse\vscode projects\jStream\testData\purchaseData.json", "JSON", 0, 43954, 0, 0, 0, 0, 43954
+"c:\Users\jesse\vscode projects\jStream\testData\purchases.ts", "TypeScript", 0, 0, 12, 0, 40, 4, 56
+"c:\Users\jesse\vscode projects\jStream\tsconfig.json", "JSON with Comments", 29, 0, 0, 0, 39, 7, 75
+"c:\Users\jesse\vscode projects\jStream\webpack.config.js", "JavaScript", 0, 0, 0, 10, 0, 1, 11
+"Total", "-", 29, 51563, 3742, 16, 811, 643, 56804
