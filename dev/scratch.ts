@@ -4,6 +4,8 @@ import { pick } from "../src/privateUtils/objects";
 import { getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
 import { getPurchases } from "../testData/purchases";
+import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
+import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
 use(inspect);
 
 /** stops unused errors */
@@ -49,8 +51,8 @@ async function main() {
 
     console.log(
         Jstream.over([1, 2, 3, [4, 5, 6, [7, 8, 9]]] as const)
-            .flat()
-            .flat()
+            .flatten()
+            .flatten()
             .toArray()
     );
 
@@ -133,8 +135,59 @@ async function main() {
 
     // const groups = Jstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
 
-    Jstream.over(["foo", "bar", "train", "frog", "seat", "car", "truck", "funeral"] as const)
+    Jstream.over([
+        "foo",
+        "bar",
+        "train",
+        "frog",
+        "seat",
+        "car",
+        "truck",
+        "funeral",
+    ] as const)
         .filter("length", "is", 2)
         .pipe(s => console.log(s.asArrayRecursive()));
+
+    // customers.append(1);
+    // customers.asArray();
+    // customers.asArrayRecursive();
+    // customers.asMap();
+    // customers.asSet();
+    // customers.asStandardCollection();
+    // customers.collapse();
+    // customers.concat(customers);
+    // customers.copyWithin(10, 1, 3);
+    // customers.count();
+    // customers.defined();
+    // customers.every(c => c.id > 0 && c.id % 1 === 0);
+    // customers.filter("state", "is", "MT");
+    // customers.final();
+    // customers.find(c => c.id === 9);
+    // customers.findLast(c => c.id === 9);
+    // customers.first();
+    // customers.flatten();
+    // customers.fold(
+    //     0,
+    //     (totalPurchaseCount, c) => c.purchases.length + totalPurchaseCount,
+    //     (totalPurchaseCount, count) => totalPurchaseCount / count
+    // );
+    // customers.forEach(console.log);
+    // customers.groupBy("city");
+    // // customers.groupJoin()
+    // customers.ifEmpty([3]);
+    // customers.including([9]);
+    // customers.indexed();
+    console.log("reading stack overflow survey...");
+    const stackSurvey = await getStackOverflowSurvey();
+    console.log("done");
+    console.log("reading survey schema...");
+    const stackSurveySchema = await getStackOverflowSurveySchema();
+    console.log("done");
+    console.log(stackSurveySchema.map(["qname", "question", "type"]).asArray())
+    // console.log(stackSurveySchema.map(["qname", "force_resp", "type"]).asArray());
+
+    // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
+
+
 }
 main();

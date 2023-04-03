@@ -20,6 +20,7 @@ import {
     iterableFromIteratorGetter,
     range,
 } from "./privateUtils/iterable";
+import { pick } from "./privateUtils/objects";
 import { makeString } from "./privateUtils/strings";
 import {
     isArray,
@@ -325,21 +326,45 @@ export default class Jstream<T> implements Iterable<T> {
     // =====================
     // basic transformations
     // =====================
-    /**
-     * Maps each item in the stream to a new item using the given mapping function.
-     */
-    public get map() {
-        return <R>(mapping: (item: T, index: number) => R): Jstream<R> => {
-            const self = this;
+    public get map(): {
+        <Field extends keyof T>(fields: Field[]): Jstream<
+            Record<Field, T[Field]>
+        >;
+        /**
+         * Maps each item in the stream to a new item using the given mapping function.
+         */
+        <R>(mapping: (item: T, index: number) => R): Jstream<R>;
+    } {
+        const self = this;
+        return function map(arg: any) {
+            if (arg instanceof Function) {
+                const mapping = arg;
+                return new Jstream({}, function* () {
+                    let i = 0;
+                    for (const item of self) {
+                        yield mapping(item, i);
+                        i++;
+                    }
+                });
+            } else {
+                return new Jstream({}, function* () {
+                    for (const item of self) {
+                        yield pick(item, arg);
+                    }
+                });
+            }
+        } as any;
+        // return <R>(mapping: (item: T, index: number) => R): Jstream<R> => {
+        //     const self = this;
 
-            return new Jstream({}, function* () {
-                let i = 0;
-                for (const item of self) {
-                    yield mapping(item, i);
-                    i++;
-                }
-            });
-        };
+        //     return new Jstream({}, function* () {
+        //         let i = 0;
+        //         for (const item of self) {
+        //             yield mapping(item, i);
+        //             i++;
+        //         }
+        //     });
+        // };
     }
 
     // TODO index by other things
@@ -635,19 +660,19 @@ export default class Jstream<T> implements Iterable<T> {
 
     /** Equivalent to {@link Array.copyWithin}. */
     public get copyWithin() {
-        return (
+        const self = this;
+        return function copyWithin(
             target: number | bigint,
             start: number | bigint,
             end?: number | bigint
-        ): Jstream<T> => {
+        ): Jstream<T> {
+            //TODO optimize
             return new Jstream(
                 { expensiveSource: true, freshSource: true },
                 () =>
-                    this.toArray().copyWithin(
-                        Number(target),
-                        Number(start),
-                        Number(end)
-                    )
+                    self
+                        .toArray()
+                        .copyWithin(Number(target), Number(start), Number(end))
             );
         };
     }
@@ -989,36 +1014,13 @@ export default class Jstream<T> implements Iterable<T> {
 
     // TODO better description
     /**
-     * Flattens the stream, only includes {@link Jstream}s and {@link Array}s. Use {@link flatten} to include every {@link Iterable}.
-     */
-    public get flat() {
-        return (): Jstream<
-            T extends Jstream<infer SubT>
-                ? SubT
-                : T extends readonly (infer SubT)[]
-                ? SubT
-                : T
-        > => {
-            const self = this;
-            return new Jstream({}, function* () {
-                for (const item of self) {
-                    if (item instanceof Jstream || Array.isArray(item)) {
-                        yield* item as any;
-                    } else {
-                        yield item;
-                    }
-                }
-            });
-        };
-    }
-
-    // TODO better description
-    /**
-     * Flattens the stream including strings, which are {@link Iterable}. Use {@link flat} to ignore strings.
+     * Flattens the stream.
      */
     public get flatten() {
-        return (): Jstream<T extends Iterable<infer SubT> ? SubT : T> => {
-            const self = this;
+        const self = this;
+        return function flatten(): Jstream<
+            T extends Iterable<infer SubT> ? SubT : T
+        > {
             return new Jstream({}, function* () {
                 for (const item of self) {
                     if (isIterable(item)) {
@@ -1483,7 +1485,7 @@ export default class Jstream<T> implements Iterable<T> {
         function recursive(items: Jstream<any> | readonly any[]): any {
             if (items instanceof Jstream) return recursive(items.asArray());
 
-            const result = [];
+            const result: any[] = [];
             let recur = false;
 
             for (const item of items) {
@@ -1533,12 +1535,13 @@ export default class Jstream<T> implements Iterable<T> {
             alternative: A | (() => A)
         ): T | A;
     } {
-        return (
+        const self = this;
+        return function find(
             condition: (item: T, index: number) => boolean,
             alternative?: any
-        ): any => {
+        ): any {
             let i = 0;
-            for (const item of this) {
+            for (const item of self) {
                 if (condition(item, i)) return item;
                 i++;
             }

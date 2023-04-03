@@ -991,7 +991,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         if (isIterable(source)) {
             return source;
         } else {
-            const result = [];
+            const result: any[] = [];
             for await (const item of source) {
                 result.push(item);
             }
