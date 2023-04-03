@@ -16,7 +16,13 @@ export const getStackOverflowSurvey = lazy(
             );
         } catch (e) {
             console.log(
-                "testData/stack overflow survey/surveyResults_public.zip may need to be unzipped"
+                "   ***************************************************************************************"
+            );
+            console.log(
+                "   ****testData/stack overflow survey/surveyResults_public.zip may need to be unzipped****"
+            );
+            console.log(
+                "   ***************************************************************************************"
             );
             throw e;
         }
