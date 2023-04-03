@@ -33,20 +33,17 @@ export function asComparator<T>(order: Order<T>): Comparator<T> {
  * A much better default comparator.
  * Tries to sort things how you would expect them to be sorted. false comes before true, symbols are sorted by their description, etc.
  * numbers are sorted by their NUMERIC value not their ASCII value so 2 comes before 10 like it should (also, number and bigint are sorted together so 2n will come before 3 and 4n will come after 3, etc.).
- * 
- * Sorts arrays by length
- * 
+ *
  * earlier {@link Date}s come before later {@link Date}s
- * 
- * Sorts objects by number of fields, not including inherited fields (like class methods for example).
- * 
- * sorts functions by number of parameters
+ *
+ * doesn't sort arrays, objects, or functions
  */
 export function smartComparator(a: any, b: any): number {
     // TODO! add wrapper class support (Number, Boolean, etc.)
 
     // TYPE RATINGS:
 
+    // undefined* -- 0
     // null       -- 1
     // boolean    -- 2
 
@@ -55,11 +52,10 @@ export function smartComparator(a: any, b: any): number {
 
     // string     -- 4
     // symbol     -- 5
-    // array      -- 6
-    // date       -- 7
+    // date       -- 6
+    // array      -- 7
     // object     -- 8
     // function   -- 9
-    // undefined* -- 10
 
     // * -- Array.sort ignores undefined items and just puts them
     // all at the end regardless of the comparator, making this rating
@@ -74,6 +70,11 @@ export function smartComparator(a: any, b: any): number {
 
     // value
     switch (typeRatingA) {
+        // undefined
+        case 0:
+            // pointless for reason stated above
+            return 0;
+
         // null
         case 1:
             return 0;
@@ -126,49 +127,29 @@ export function smartComparator(a: any, b: any): number {
 
         // symbol
         case 5:
-            const symbolA = a as Symbol;
-            const symbolB = b as Symbol;
-
-            if (symbolA.description === undefined) {
-                if (symbolB.description === undefined) {
-                    return 0;
-                } else {
-                    // send un-labeled symbols to start of ascending sort
-                    return -1;
-                }
-            } else if (symbolB.description === undefined) {
-                // send un-labeled symbols to start of ascending sort
-                return 1;
-            } else {
-                return symbolA.description.localeCompare(symbolB.description);
-            }
-
-        // array
-        case 6:
-            // sort arrays by length
-            return (a as any[]).length - (b as any[]).length;
+            // don't sort symbols
+            return 0;
 
         // date
-        case 7:
+        case 6:
             //TODO make sure this is how you compare dates in javascript
             return (
                 (a as Date).getMilliseconds() - (b as Date).getMilliseconds()
             );
 
+        // array
+        case 7:
+            // don't sort arrays
+            return 0;
+
         // object
         case 8:
-            // sort by number of fields (not including inherited fields)
-            return Reflect.ownKeys(a).length - Reflect.ownKeys(b).length;
-
+            // don't sort objects
+            return 0;
 
         // function
         case 9:
-            // sort by number of parameters
-            return (a as Function).length - (b as Function).length;
-
-        // undefined
-        case 10:
-            // pointless for reason stated above
+            // don't sort functions
             return 0;
     }
 
@@ -178,10 +159,16 @@ export function smartComparator(a: any, b: any): number {
 
         // special cases
         if (item === null) return 1;
-        if (Array.isArray(item)) return 6;
-        if (item instanceof Date) return 7;
+        if (item instanceof Date) return 6;
+        if (Array.isArray(item)) return 7;
 
         switch (typeof item) {
+            // this case will actually be ignored by javascript
+            // Array.sort doesn't actually sort undefined values.
+            // It just puts all the undefineds at the end of the array even if the comparator says otherwise.
+            case "undefined":
+                return 0;
+
             // null -- 1
 
             case "boolean":
@@ -197,21 +184,15 @@ export function smartComparator(a: any, b: any): number {
             case "symbol":
                 return 5;
 
-            // array -- 6
-
             // date -- 7
+
+            // array -- 6
 
             case "object":
                 return 8;
 
             case "function":
                 return 9;
-
-            // this case will actually be ignored by javascript
-            // Array.sort doesn't actually sort undefined values.
-            // It just puts all the undefineds at the end of the array even if the comparator says otherwise.
-            case "undefined":
-                return 10;
         }
     }
 }

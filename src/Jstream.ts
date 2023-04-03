@@ -1,6 +1,5 @@
 import AsyncJstream from "./AsyncJstream";
 import {
-    asArray,
     asStandardCollection,
     fisherYatesShuffle,
     groupBy,
@@ -21,7 +20,6 @@ import {
     iterableFromIteratorGetter,
     range,
 } from "./privateUtils/iterable";
-import { pick } from "./privateUtils/objects";
 import { makeString } from "./privateUtils/strings";
 import {
     isArray,
@@ -91,7 +89,7 @@ export type JstreamAsArrayRecursive<T> = T extends Jstream<infer SubT>
     ? readonly JstreamAsArrayRecursive<SubT>[]
     : T;
 
-export type Comparisons =
+export type Comparison =
     | "equals"
     | "lessThan"
     | "greaterThan"
@@ -344,21 +342,6 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
-    // TODO? nested select(types will be hardest part), function select (can be done with map then select)
-    // nested select:
-    // Jstream.of({foo: 1, bar: 2, hello: 5, biz: {baz: 3, bob: 6, bing: 9}, rock: 9}).select(["foo", "bar"], {"biz": ["baz", "bing"]}) --> [{foo: 1, bar: 2, biz: {baz: 3, bing: 9}}]
-    /**
-     * Select fields from each object.
-     */
-    public get select() {
-        const self = this;
-        return function Jstream_select<Field extends keyof T>(
-            fields: readonly Field[]
-        ): Jstream<Pick<T, Field>> {
-            return self.map(item => pick(item, fields));
-        };
-    }
-
     // TODO index by other things
     /**
      * Maps each item in the stream to a tuple containing the item's index and then the item in that order.
@@ -369,99 +352,109 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
-    /**
-     * Filters the stream to only the items that make the given condition checking function return true.
-     */
-    public get filter() {
-        return <R extends T = T>(
-            condition: (item: T, index: number) => boolean
-        ): Jstream<R> => {
-            const self = this;
-
-            return new Jstream({}, function* () {
-                let i = 0;
-                for (const item of self) {
-                    if (condition(item, i)) yield item as R;
-                    i++;
-                }
-            });
-        };
-    }
-    public get where(): {
-        <R = T>(
-            field: (item: T, index: number) => any,
-            comp: Comparisons | "is",
-            value: any,
-            order?: Order<T>
+    // TODO docs
+    public get filter(): {
+        <R extends T = T>(
+            test: (item: T, index: number) => boolean
         ): Jstream<R>;
-        <Field extends keyof T, R = T>(
+        <Field extends keyof T, R extends T = T>(
             field: Field,
-            comp: "is",
-            value: T[Field],
-            order?: undefined
+            comparison: "is",
+            value: T[Field]
         ): Jstream<R>;
-        <Field extends keyof T, R = T>(
+        <Field extends keyof T, O, R extends T = T>(
             field: Field,
-            comp: Comparisons,
-            value: any,
-            order?: Order<T>
+            comparison: Comparison,
+            value: O,
+            order?: Order<T | O>
+        ): Jstream<R>;
+        <M, O, R extends T = T>(
+            getField: (item: T, index: number) => M,
+            comparison: Comparison,
+            value: O,
+            order?: Order<M | O>
         ): Jstream<R>;
     } {
         const self = this;
-        return function Jstream_where(
-            field: any,
-            cond: Comparisons | "is",
-            value: any,
-            order = smartComparator
+        return function filter(
+            ...args:
+                | [test: (item: T, index: number) => boolean]
+                | [
+                      field: any | ((item: T, index: number) => any),
+                      comparison: Comparison | "is",
+                      value: any,
+                      order: Order<any>
+                  ]
         ) {
-            return new Jstream({}, function* () {
-                const source = self.getSource();
+            // case for test function that returns a boolean
+            if (args.length === 1) {
+                const test = args[0];
+                return new Jstream({}, function* () {
+                    let i = 0;
+                    for (const item of self) {
+                        if (test(item, i)) yield item;
+                        i++;
+                    }
+                });
+            }
 
-                if (
-                    cond === "is" &&
-                    !(field instanceof Function) &&
-                    source instanceof Map &&
-                    (field === 0 || field === "0")
-                ) {
-                    const item = source.get(value);
-                    if (item !== undefined) yield item;
-                } else {
-                    const comparator = asComparator(order);
+            // field comparison value
+            const [field, comparison, value, order = smartComparator] = args;
 
-                    const conditions: Record<
-                        Comparisons | "is",
-                        (a: any, b: any) => boolean
-                    > = {
-                        is: (a, b) => Object.is(a, b),
-                        equals: (a, b) => comparator(a, b) === 0,
-                        lessThan: (a, b) => comparator(a, b) < 0,
-                        lessThanOrEqualTo: (a, b) => comparator(a, b) <= 0,
-                        greaterThan: (a, b) => comparator(a, b) > 0,
-                        greaterThanOrEqualTo: (a, b) => comparator(a, b) >= 0,
-                    };
-                    const condition = conditions[cond];
-
-                    if (field instanceof Function) {
-                        let i = 0;
-                        for (const item of source) {
-                            const map = field(item, i);
-                            if (condition(map, value)) {
-                                yield item;
-                            }
-                            i++;
+            // special case for Map source and field of 0 with "is" comparison
+            if (comparison === "is" && field == 0) {
+                return new Jstream({}, function* () {
+                    const source = self.getSource();
+                    if (source instanceof Map) {
+                        // if the source is a map and field is 0 and the comparison is "is"
+                        // the map can be queried for the entry
+                        const item_1 = source.get(value);
+                        if (item_1 !== undefined || source.has(value)) {
+                            yield [value, item_1];
                         }
                     } else {
+                        // otherwise, a linear search is still required
                         for (const item of source) {
-                            if (condition((item as any)[field], value)) {
+                            if (Object.is(value, (item as any)[field])) {
                                 yield item;
                             }
                         }
                     }
-                }
-            });
-        };
-    }
+                });
+            }
 
+            // general case for: field comparison value
+            const comparator = asComparator(order);
+            const conditions: Record<
+                Comparison | "is",
+                (a: any, b: any) => boolean
+            > = {
+                is: (a, b) => Object.is(a, b),
+                equals: (a, b) => comparator(a, b) === 0,
+                lessThan: (a, b) => comparator(a, b) < 0,
+                lessThanOrEqualTo: (a, b) => comparator(a, b) <= 0,
+                greaterThan: (a, b) => comparator(a, b) > 0,
+                greaterThanOrEqualTo: (a, b) => comparator(a, b) >= 0,
+            };
+            const condition = conditions[comparison];
+
+            if (typeof field === "function") {
+                return new Jstream({}, function* () {
+                    let i = 0;
+                    for (const item of self) {
+                        if (condition(field(item, i), value)) yield item;
+                        i++;
+                    }
+                });
+            } else {
+                return new Jstream({}, function* () {
+                    for (const item of self) {
+                        if (condition((item as any)[field], value)) yield item;
+                    }
+                });
+            }
+        } as any;
+    }
     /**
      * Appends the items to the end of the stream.
      */
@@ -503,6 +496,20 @@ export default class Jstream<T> implements Iterable<T> {
     public get prepend() {
         return <O>(item: O): Jstream<O | T> => {
             return this.preConcat([item]);
+        };
+    }
+
+    public get sort() {
+        const self = this;
+        return function sort() {
+            return self.sortBy(identity);
+        };
+    }
+
+    public get sortDescending() {
+        const self = this;
+        return function sortDescending() {
+            return self.sortByDescending(identity);
         };
     }
 
@@ -938,16 +945,16 @@ export default class Jstream<T> implements Iterable<T> {
         /**
          * Replaces the contents of the stream with the given alternative if the stream is empty.
          */
-        <R>(alternative: Iterable<R>): Jstream<T> | Jstream<R>;
+        <A>(alternative: Iterable<A>): Jstream<T> | Jstream<A>;
         /**
          * Replaces the contents of the stream with the result of the given function if the stream is empty.
          */
-        <R>(alternative: () => Iterable<R>): Jstream<T> | Jstream<R>;
+        <A>(alternative: () => Iterable<A>): Jstream<T> | Jstream<A>;
     } {
-        return <R>(
-            alternative: Iterable<R> | (() => Iterable<R>)
-        ): Jstream<T> | Jstream<R> => {
-            return new Jstream<T | R>(
+        return <A>(
+            alternative: Iterable<A> | (() => Iterable<A>)
+        ): Jstream<T> | Jstream<A> => {
+            return new Jstream<T | A>(
                 {
                     expensiveSource: true,
                 },
@@ -976,7 +983,7 @@ export default class Jstream<T> implements Iterable<T> {
                         } while (!(next = iterator.next()).done);
                     })();
                 }
-            ) as Jstream<T> | Jstream<R>;
+            ) as Jstream<T> | Jstream<A>;
         };
     }
 
@@ -1473,14 +1480,12 @@ export default class Jstream<T> implements Iterable<T> {
             return recursive(this);
         };
 
-        function recursive(
-            items: Jstream<any> | readonly any[]
-        ): any {
+        function recursive(items: Jstream<any> | readonly any[]): any {
             if (items instanceof Jstream) return recursive(items.asArray());
 
             const result = [];
             let recur = false;
-            
+
             for (const item of items) {
                 if (item instanceof Jstream || Array.isArray(item)) {
                     result.push(recursive(item));
@@ -1824,6 +1829,20 @@ export default class Jstream<T> implements Iterable<T> {
     public get toJSON() {
         return (): readonly T[] => {
             return this.asArray();
+        };
+    }
+
+    // ============
+    // special
+    // ===========
+    /**
+     * Call the given function with the {@link Jstream}.
+     * @returns The result of the function.
+     */
+    public get pipe() {
+        const self = this;
+        return function pipe<R>(action: (stream: typeof self) => R): R {
+            return action(self);
         };
     }
 
