@@ -706,7 +706,74 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Filters duplicate items out of the stream.
+     * Filters to numbers only.
+     */
+    public get numbers() {
+        const self = this;
+        return function numbers(): Jstream<T & number> {
+            return self.filter(item => typeof item === "number");
+        };
+    }
+    /**
+     * Filters to bigints only.
+     */
+    public get bigints() {
+        const self = this;
+        return function bigints(): Jstream<T & bigint> {
+            return self.filter(item => typeof item === "bigint");
+        };
+    }
+    /**
+     * Filters to numbers and bigints only.
+     */
+    public get numbersAndBigints() {
+        const self = this;
+        return function numbersAndBigints(): Jstream<
+            (T & number) | (T & bigint)
+        > {
+            return self.filter(
+                item => typeof item === "number" || typeof item === "bigint"
+            );
+        };
+    }
+
+    /**
+     * Filters to {@link Array}s only.
+     */
+    public get arrays() {
+        const self = this;
+        return function arrays(): Jstream<T & readonly any[]> {
+            return self.filter(item => Array.isArray(item));
+        };
+    }
+
+    /**
+     * Filters to non-null objects only.
+     */
+    public get objects() {
+        const self = this;
+        return function objects(): Jstream<T & object & {}> {
+            return self.filter(
+                item => typeof item === "object" && null !== item
+            );
+        };
+    }
+    /**
+     * Filters to functions only.
+     */
+    public get functions() {
+        const self = this;
+        return function functions(): Jstream<
+            T & (Function | ((...args: any) => any))
+        > {
+            return self.filter(
+                item => item instanceof Function || typeof item === "function"
+            );
+        };
+    }
+
+    /**
+     * Filters duplicate items out of the {@link Jstream}.
      *
      * @param How to identify each item. Defaults to using the item itself.
      */
@@ -2132,7 +2199,7 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get toAsyncJstream() {
         return (): AsyncJstream<T> => {
-            return new AsyncJstream(this.getSource, this.properties);
+            return new AsyncJstream(this.properties, this.getSource);
         };
     }
 

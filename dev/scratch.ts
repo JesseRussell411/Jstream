@@ -7,6 +7,7 @@ import { getPurchases } from "../testData/purchases";
 import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
 import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
 import { requireNumberToBe } from "../src/privateUtils/errorGuards";
+import AsyncJstream from "../src/AsyncJstream";
 use(inspect);
 
 /** stops unused errors */
@@ -184,17 +185,34 @@ async function main() {
     console.log("reading survey schema...");
     const stackSurveySchema = await getStackOverflowSurveySchema();
     console.log("done");
-    console.log(stackSurveySchema.map(["qname", "question", "type"]).asArray())
+    console.log(stackSurveySchema.map(["qname", "question", "type"]).asArray());
     // console.log(stackSurveySchema.map(["qname", "force_resp", "type"]).asArray());
 
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
 
-    customers.filter("state", "is", "MT")
-    
+    customers.filter("state", "is", "MT");
+
     console.log(Jstream.range(11).takeEveryNth(10n).toArray());
-    
-    
 
+    customers.filter("state", "is", "MA");
 
+    AsyncJstream.over([
+        Promise.resolve(2),
+        4,
+        Promise.resolve(Promise.resolve(6)),
+    ])
+        .map(item => {
+            if (typeof item === "number") {
+                return item + 1;
+            } else {
+                return item;
+            }
+        })
+        .filter(item => item instanceof Promise)
+        .await()
+        .toArray()
+        .then(console.log);
+
+    console.log(Promise.resolve(Promise.resolve(42)));
 }
 main();

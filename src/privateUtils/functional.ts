@@ -13,6 +13,21 @@ export function returns<T>(item: T): () => T {
     return () => item;
 }
 
+/** @throws {E} The error given. */
+type ThrowError<E> = (error: E) => void;
+
+/** @throws {E} The error given. */
+export function throwError<E>(error: E): void {
+    throw error;
+}
+
+/** @returns A function that throws the given error. */
+export function throws<E>(error: E): ThrowError<E> {
+    return () => {
+        throw error;
+    };
+}
+
 /**
  * Creates a cached version of the given function.
  *

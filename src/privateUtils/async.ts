@@ -64,13 +64,16 @@ export function getIterator<T>(
 export async function asyncForEach<T>(
     iterable: AwaitableIterable<T>,
     action: (item: T, index: number) => Awaitable<void | BreakSignal>
-): Promise<void> {
+): Promise<void | BreakSignal> {
     const iterator = getIterator(iterable);
-    let next = await iterator.next();
     let i = 0;
-    for (; !next.done; next = await iterator.next()) {
+    for (
+        let next = await iterator.next();
+        !next.done;
+        next = await iterator.next()
+    ) {
         const signal = await action(next.value, i);
-        if (signal === breakSignal) break;
+        if (signal === breakSignal) return signal;
         i++;
     }
 }
