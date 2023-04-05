@@ -108,6 +108,8 @@ export type Comparison =
 // TODO rename to Tstream !nevermind, taken, think of something else
 // TODO select as in select(["state", "zip", "nestedInfo": ["someNestedThing", "maybe not this part"]])
 // TODO merge, loose and strict; join(Iterable<T> delim) or interleave or insertInBetween, whatever name works
+// TODO throws declarations for all the NeverEndingOperationErrors
+// TODO documentation
 
 export default class Jstream<T> implements Iterable<T> {
     private readonly getSource: () => Iterable<T>;
