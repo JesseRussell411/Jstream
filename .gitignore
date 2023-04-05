@@ -1,2 +1,3 @@
-node_modules/
-dist/
+node_modules
+/dist
+/testData/stack overflow survey/survey_results_public.csv
