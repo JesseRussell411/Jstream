@@ -1,17 +1,13 @@
+import { JstreamProperties } from "./Jstream";
+import NeverEndingOperationError from "./errors/NeverEndingOperationError";
 import { asyncForEach, getIterator } from "./privateUtils/async";
 import { returns } from "./privateUtils/functional";
 import { isAsyncIterable, isIterable } from "./privateUtils/typeGuards";
 import { Awaitable, AwaitableIterable, AwaitableIterator } from "./types/async";
+import { General } from "./types/literals";
 import { BreakSignal } from "./types/symbols";
 // TODO expensiveSource, insertAll, documentation
-export type AsyncJstreamProperties<_> = Partial<
-    Readonly<{
-        /** Each call to the source getter produces a new copy of the source. This means that the source can be modified safely, assuming it is a mutable collection like {@link Array}, which is not guarantied. */
-        freshSource: boolean;
-        /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
-        expensiveSource: boolean;
-    }>
->;
+export type AsyncJstreamProperties<T> = JstreamProperties<T>;
 
 export default class AsyncJstream<T> implements AsyncIterable<T> {
     private readonly getSource: () => Awaitable<
@@ -97,7 +93,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     public get filter() {
         const self = this;
         return function filter<R extends T = T>(
-            condition: (item: T, index: number) => boolean
+            condition: (item: T, index: number) => Awaitable<boolean>
         ): AsyncJstream<R> {
             return new AsyncJstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined = undefined;
@@ -116,7 +112,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
                             if (next.done)
                                 return { done: true, value: undefined };
                             item = next.value;
-                        } while (!condition(item, i));
+                        } while (!(await condition(item, i)));
 
                         return { done: false, value: item as R };
                     },
@@ -136,6 +132,139 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             return new AsyncJstream({}, async function* () {
                 yield* self;
             });
+        };
+    }
+
+    public get reduce(): {
+        /**
+         * Reduces the stream to a single value using the given reducer function.
+         * This function is first called on the first two items in the stream like this: reducer(first, second, 1).
+         * The index given corresponds to the second item given to the function.
+         * Next the result of that call and the third item are given to the function: reducer(result, third, 2).
+         * This continues until the final item: reducer(result, final, final index).
+         * The result of that call is returned.
+         *
+         * If the stream only contains 1 item, that item is returned.
+         *
+         * If the stream contains no items, an Error is thrown.
+         */
+        (
+            reducer: (
+                result: General<T>,
+                item: T,
+                index: number
+            ) => Awaitable<General<T>>
+        ): Promise<General<T>>;
+
+        /**
+         * Reduces the stream to a single value in the same way as {@link Jstream.reduce}.
+         * The difference is that the given finalize function is called on the result.
+         * The result of this function is returned instead of the original result.
+         * @param finalize Applied to the result and the number of items in the stream. The result of this is what gets returned.
+         */
+        <F>(
+            reducer: (
+                result: General<T>,
+                item: T,
+                index: number
+            ) => Awaitable<General<T>>,
+            finalize: (result: General<T>, count: number) => F
+        ): Promise<Awaited<F>>;
+    } {
+        return async <F>(
+            reducer: (
+                result: General<T>,
+                item: T,
+                index: number
+            ) => Awaitable<General<T>>,
+            finalize?: (result: General<T>, count: number) => F
+        ): Promise<General<T> | Awaited<F>> => {
+            if (this.properties.infinite) {
+                throw new NeverEndingOperationError(
+                    "cannot reduce infinite items"
+                );
+            }
+            const iterator = this[Symbol.asyncIterator]();
+            let next = await iterator.next();
+
+            // TODO maybe just return undefined instead
+            if (next.done) {
+                throw new Error(
+                    "cannot reduce empty iterable. no initial value"
+                );
+            }
+
+            let result: General<T> = next.value as General<T>;
+
+            let i = 1;
+            while (!(next = await iterator.next()).done) {
+                result = await reducer(result, next.value, i);
+
+                i++;
+            }
+
+            if (finalize !== undefined) {
+                return await finalize(result, i);
+            } else {
+                return await result;
+            }
+        };
+    }
+
+    public get fold(): {
+        /**
+         * Reduces the stream in the same way as {@link Jstream.reduce}.
+         * The difference is the given initialValue is used in place of the first value in the fist call to the given reducer function:
+         * reducer(initialValue, first, 0). The index given corresponding to the item given to the function.
+         * Unlike {@link Jstream.reduce}, an Error isn't thrown in the case of an empty stream. The initial value is returned instead.
+         */
+        <R>(
+            initialValue: R,
+            reducer: (result: R, item: T, index: number) => Awaitable<R>
+        ): Promise<Awaited<R>>;
+
+        /**
+         * Reduces the stream in the same way as {@link Jstream.fold}.
+         * The difference is that the given finalize function is called on the result.
+         * The result of this function is returned instead of the original result.
+         * @param finalize Applied to the result and the number of items in the stream;
+         * this count only includes values from the stream, it does not include the initial
+         * value given to the function. The result of this is what gets returned.
+         */
+        <R, F>(
+            initialValue: R,
+            reducer: (result: R, item: T, index: number) => Awaitable<R>,
+            finalize: (result: R, count: number) => F
+        ): Promise<Awaited<F>>;
+    } {
+        return async <R, F = R>(
+            initialValue: R,
+            reducer: (result: R, item: T, index: number) => R,
+            finalize?: (result: R, count: number) => F
+        ): Promise<Awaited<F | R>> => {
+            if (this.properties.infinite) {
+                throw new NeverEndingOperationError(
+                    "cannot fold infinite items"
+                );
+            }
+            let result: R | Awaited<R> = initialValue;
+
+            let i = 0;
+            const iterator = this[Symbol.asyncIterator]();
+            for (
+                let next = await iterator.next();
+                !next.done;
+                next = await iterator.next()
+            ) {
+                result = await reducer(result, next.value, i);
+                i++;
+            }
+
+            if (finalize !== undefined) {
+                return await finalize(result, i);
+            } else {
+                return await result;
+            }
         };
     }
 

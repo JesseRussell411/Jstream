@@ -210,7 +210,10 @@ async function main() {
         })
         .filter(item => item instanceof Promise)
         .await()
-        .toArray()
+        .reduce(
+            (a, b) => Promise.resolve(a + b),
+            (total, count) => Promise.resolve(total / count)
+        )
         .then(console.log);
 
     console.log(Promise.resolve(Promise.resolve(42)));
