@@ -64,7 +64,7 @@ async function main() {
 
     // convert object to map
     const obj = { one: 1, two: 2, three: 3, four: 4, five: 5 };
-    const map = Jstream.fromObject(obj).toMap();
+    const map = Jstream.overObject(obj).toMap();
 
     console.log({ obj, map });
 
@@ -179,7 +179,7 @@ async function main() {
     // customers.including([9]);
     // customers.indexed();
     console.log("reading stack overflow survey...");
-    const stackSurvey = await getStackOverflowSurvey();
+    // const stackSurvey = await getStackOverflowSurvey();
     console.log("done");
     console.log("reading survey schema...");
     const stackSurveySchema = await getStackOverflowSurveySchema();
@@ -190,6 +190,9 @@ async function main() {
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
 
     customers.filter("state", "is", "MT")
+    
+    console.log(Jstream.range(11).takeEveryNth(10n).toArray());
+    
     
 
 

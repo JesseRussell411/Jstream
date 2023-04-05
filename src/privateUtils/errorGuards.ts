@@ -27,6 +27,16 @@ export function requireInteger<N extends number | bigint>(num: N): N {
     if (num % 1 === 0) return num;
     throw new Error("expected an integer but got: " + num);
 }
+/**
+ * Ensures that the number is a whole number or that it is infinity or negative infinity.
+ * @throws If the number has a value to the right of the decimal point. If the number is not an integer.
+ */
+export function requireIntegerOrInfinity<N extends number | bigint>(num: N): N {
+    if (typeof num === "bigint") return num;
+    if (num === Infinity || num === -Infinity) return num;
+    if (num % 1 === 0) return num;
+    throw new Error("expected an integer or infinity but got: " + num);
+}
 
 /**
  * Ensures that the number is zero or greater.
