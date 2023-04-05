@@ -41,6 +41,18 @@ export function requireNonNegative<N extends number | bigint>(num: N): N {
 }
 
 /**
+ * Ensures that the number is less than zero.
+ * @throws If the number is non-negative.
+ */
+export function requireNegative<N extends number | bigint>(num: N): N {
+    if (num >= 0) {
+        throw new Error("expected a negative number but got " + num);
+    }
+
+    return num;
+}
+
+/**
  * Ensures that the number is greater than zero.
  * @throws If the number is zero or less.
  */
@@ -93,4 +105,113 @@ export function requireSafeNumber<N extends number | bigint>(number: N): N {
  */
 export function requireSafeInteger<N extends number | bigint>(number: N): N {
     return requireInteger(requireSafeNumber(number));
+}
+
+type RequireNumber = {
+    <N extends number | bigint>(n: N): N;
+    finite: RequireNumber;
+    nonNaN: RequireNumber;
+    integer: RequireNumber;
+    nonNegative: RequireNumber;
+    greaterThanZero: RequireNumber;
+    nonZero: RequireNumber;
+    safeNumber: RequireNumber;
+    safeInteger: RequireNumber;
+};
+
+export const requireNumberToBe: RequireNumber = ((n: any) => n) as any;
+addStuff(requireNumberToBe);
+function addStuff(object: any) {
+    Object.defineProperties(object, {
+        finite: {
+            get() {
+                const result = function finite(n: number | bigint) {
+                    // @ts-ignore
+                    return requireFinite(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        nonNaN: {
+            get() {
+                const result = function nonNaN(n: number | bigint) {
+                    // @ts-ignore
+                    return requireNonNaN(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        integer: {
+            get() {
+                const result = function integer(n: number | bigint) {
+                    // @ts-ignore
+                    return requireInteger(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        nonNegative: {
+            get() {
+                const result = function nonNegative(n: number | bigint) {
+                    // @ts-ignore
+                    return requireNonNegative(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        negative: {
+            get() {
+                const result = function negative(n: number | bigint) {
+                    // @ts-ignore
+                    return requireNegative(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        greaterThanZero: {
+            get() {
+                const result = function greaterThanZero(n: number | bigint) {
+                    // @ts-ignore
+                    return requireGreaterThanZero(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        nonZero: {
+            get() {
+                const result = function nonZero(n: number | bigint) {
+                    // @ts-ignore
+                    return requireNonZero(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        safeNumber: {
+            get() {
+                const result = function safeNumber(n: number | bigint) {
+                    // @ts-ignore
+                    return requireSafeNumber(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+        safeInteger: {
+            get() {
+                const result = function safeInteger(n: number | bigint) {
+                    // @ts-ignore
+                    return requireSafeInteger(object(n));
+                };
+                addStuff(result);
+                return result;
+            },
+        },
+    });
 }

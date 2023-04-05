@@ -1,5 +1,5 @@
 /** Either a {@link Promise} of the given type or just the given type. */
-export type Awaitable<T> = Promise<T> | T;
+export type Awaitable<T> = PromiseLike<T> | T;
 
 /** Either an {@link Iterable} or an {@link AsyncIterable} */
 export type AwaitableIterable<T> = Iterable<T> | AsyncIterable<T>;

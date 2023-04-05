@@ -1,4 +1,4 @@
-import Jstream from "../Jstream";
+import Jstream from "../src/Jstream";
 
 export class DoubleMap<A, B> implements Map<A, B> {
     private aIndex: Map<A, B>;

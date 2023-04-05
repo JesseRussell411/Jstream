@@ -6,6 +6,7 @@ import { getProducts } from "../testData/products";
 import { getPurchases } from "../testData/purchases";
 import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
 import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
+import { requireNumberToBe } from "../src/privateUtils/errorGuards";
 use(inspect);
 
 /** stops unused errors */
@@ -146,7 +147,7 @@ async function main() {
         "funeral",
     ] as const)
         .filter("length", "is", 2)
-        .pipe(s => console.log(s.asArrayRecursive()));
+        .apply(s => console.log(s.asArrayRecursive()));
 
     // customers.append(1);
     // customers.asArray();
@@ -187,6 +188,9 @@ async function main() {
     // console.log(stackSurveySchema.map(["qname", "force_resp", "type"]).asArray());
 
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
+
+    customers.filter("state", "is", "MT")
+    
 
 
 }
