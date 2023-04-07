@@ -97,31 +97,94 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         ): AsyncJstream<R> {
             return new AsyncJstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined = undefined;
-                let i = -1;
+                let i = 0;
                 return {
                     next: async (): Promise<IteratorResult<R>> => {
                         if (iterator === undefined) {
                             iterator = self[Symbol.asyncIterator]();
                         }
 
-                        let next: IteratorResult<T>;
-                        let item: T;
-                        do {
-                            i++;
-                            next = await iterator.next();
-                            if (next.done)
+                        while (true) {
+                            const next = await iterator.next();
+                            if (next.done) {
                                 return { done: true, value: undefined };
-                            item = next.value;
-                        } while (!(await condition(item, i)));
-
-                        return { done: false, value: item as R };
+                            }
+                            const item = next.value;
+                            if (await condition(item, i)) {
+                                return { done: false, value: item as R };
+                            }
+                            i++;
+                        }
                     },
                 };
             });
         };
     }
 
-    // TODO reduce and fold
+    public get takeWhile() {
+        const self = this;
+        return function (condition: (item: T, index: number) => Awaitable<boolean>) {
+            return new AsyncJstream({}, () => {
+                let iterator: AsyncIterator<T> | undefined;
+                let i = 0;
+                let done = false;
+                return {
+                    next: async () => {
+                        if (done) return { done: true, value: undefined };
+                        if (iterator === undefined) {
+                            iterator = self[Symbol.asyncIterator]();
+                        }
+
+                        const next = await iterator.next();
+                        if (next.done) return { done: true, value: undefined };
+                        const item = next.value;
+
+                        if (condition(item, i)) {
+                            i++;
+                            return { done: false, value: item };
+                        } else {
+                            i++;
+                            return { done: true, value: undefined };
+                        }
+                    },
+                };
+            });
+        };
+    }
+
+    public get skipWhile() {
+        const self = this;
+        return function (condition: (item: T, index: number) => Awaitable<boolean>) {
+            return new AsyncJstream({}, () => {
+                let iterator: AsyncIterator<T> | undefined;
+                let i = 0;
+                let done = false;
+                return {
+                    next: async () => {
+                        if (done) return { done: true, value: undefined };
+                        if (iterator === undefined) {
+                            iterator = self[Symbol.asyncIterator]();
+                        }
+
+                        while(true){
+                            const next = await iterator.next();
+                            if (next.done) return { done: true, value: undefined };
+                            const item = next.value;
+                            
+                            if (condition(item, i)) {
+                                i++;
+                                return { done: false, value: item };
+                            } else {
+                                i++;
+                                return { done: true, value: undefined };
+                            }
+                        }
+                        
+                    },
+                };
+            });
+        };
+    }
 
     /**
      * Awaits all promises in the {@link AsyncJstream}.

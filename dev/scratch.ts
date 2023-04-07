@@ -1,7 +1,7 @@
 import { inspect } from "util";
 import Jstream from "../src/Jstream";
 import { pick } from "../src/privateUtils/objects";
-import { getCustomers } from "../testData/customers";
+import { Customer, getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
 import { getPurchases } from "../testData/purchases";
 import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
@@ -185,7 +185,7 @@ async function main() {
     console.log("reading survey schema...");
     const stackSurveySchema = await getStackOverflowSurveySchema();
     console.log("done");
-    console.log(stackSurveySchema.map(["qname", "question", "type"]).asArray());
+    console.log(stackSurveySchema.map(["qname", "question", "type", "selector", "type"]).asArray());
     // console.log(stackSurveySchema.map(["qname", "force_resp", "type"]).asArray());
 
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
@@ -195,6 +195,19 @@ async function main() {
     console.log(Jstream.range(11).takeEveryNth(10n).toArray());
 
     customers.filter("state", "is", "MA");
+
+    const customersFiltered = customers.fold(
+        [[] as Customer[], [] as Customer[]] as const,
+        (dest, c) => {
+            if (c.purchases.length < 2) {
+                dest[0].push(c);
+            } else {
+                dest[1].push(c);
+            }
+            return dest;
+        },
+        dest => dest.map(Jstream.over)
+    );
 
     AsyncJstream.over([
         Promise.resolve(2),
@@ -218,4 +231,5 @@ async function main() {
 
     console.log(Promise.resolve(Promise.resolve(42)));
 }
+
 main();

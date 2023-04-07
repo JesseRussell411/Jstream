@@ -14,7 +14,7 @@ import { Order } from "../types/sorting";
 import { asyncForEach, getIterator } from "./async";
 import { requireGreaterThanZero, requireSafeInteger } from "./errorGuards";
 import { iterableFromIteratorGetter } from "./iterable";
-import { isIterable } from "./typeGuards";
+import { isIterable, isStandardCollection } from "./typeGuards";
 
 /**
  * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
@@ -89,12 +89,12 @@ export function memoizeIterable<T>(iterable: Iterable<T>): Iterable<T> {
  * In-place Fisher-Yates shuffle of the given array.
  * Uses {@link Math.random}.
  * @param array What to shuffle.
- * @param getRandomInt Returns a random integer between 0 (inclusive) and max (exclusive).
+ * @param getRandomInt Returns a random integer that's greater than or equal to 0 and less than upperBound. Defaults to using {@link Math.random}, which is not cryptographically secure.
  */
 export function fisherYatesShuffle(
     array: any[],
-    getRandomInt: (max: number) => number = max =>
-        Math.trunc(Math.random() * max)
+    getRandomInt: (upperBound: number) => number = upperBound =>
+        Math.trunc(Math.random() * upperBound)
 ): void {
     for (let i = array.length - 1; i > 0; i--) {
         const j = getRandomInt(i + 1);
@@ -118,7 +118,7 @@ export async function asyncToArray<T>(
 export function toArray<T>(items: Iterable<T>): T[];
 
 export function toArray<T>(items: Iterable<T>): T[] {
-    if (items instanceof Jstream){
+    if (items instanceof Jstream) {
         return items.toArray();
     }
     return [...items];
@@ -450,4 +450,14 @@ export function groupBy<T, K>(
     }
 
     return groups;
+}
+
+export function asStandardCollection<T>(
+    iterable: Iterable<T>
+): ReadonlyStandardCollection<T> {
+    if (isStandardCollection(iterable)) {
+        return iterable;
+    } else {
+        return [...iterable];
+    }
 }
