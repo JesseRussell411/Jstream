@@ -51,5 +51,5 @@ export interface Purchase {
 export const getPurchases = lazy(async (): Promise<Jstream<Purchase>> => {
     const data = await fs.readFile("./testData/purchaseData.json");
     const purchases = JSON.parse(data.toString()) as any[];
-    return Jstream.over(purchases);
+    return Jstream.from(purchases);
 });

@@ -27,7 +27,7 @@ export class DoubleMap<A, B> implements Map<A, B> {
     ): DoubleMap<A, B> {
         const a = new Map(entries);
         const b = new Map(
-            Jstream.over(a).map(entry => [entry[1], entry[0]] as const)
+            Jstream.from(a).map(entry => [entry[1], entry[0]] as const)
         );
         return this.privateConstructor(a, b);
     }

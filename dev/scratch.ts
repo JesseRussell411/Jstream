@@ -19,7 +19,7 @@ async function main() {
     const purchases = await getPurchases();
     use(customerData, products, purchases);
     console.log(
-        Jstream.over([1, 2, 3, 4] as const).fold(
+        Jstream.from([1, 2, 3, 4] as const).fold(
             9,
             (a, b) => a + b,
             (r, c) => r / c
@@ -52,7 +52,7 @@ async function main() {
     );
 
     console.log(
-        Jstream.over([1, 2, 3, [4, 5, 6, [7, 8, 9]]] as const)
+        Jstream.from([1, 2, 3, [4, 5, 6, [7, 8, 9]]] as const)
             .flatten()
             .flatten()
             .toArray()
@@ -60,18 +60,18 @@ async function main() {
 
     console.log(JSON.stringify(Jstream.of(1, 2, 3)));
     console.log(
-        Jstream.over("the quick brown fox jumps over the lazy dog").makeString()
+        Jstream.from("the quick brown fox jumps over the lazy dog").makeString()
     );
 
     // convert object to map
     const obj = { one: 1, two: 2, three: 3, four: 4, five: 5 };
-    const map = Jstream.overObject(obj).toMap();
+    const map = Jstream.fromObject(obj).toMap();
 
     console.log({ obj, map });
 
     // convert map to object
 
-    const obj2 = Jstream.over(map).toObject();
+    const obj2 = Jstream.from(map).toObject();
 
     console.log({ map, obj2 });
 
@@ -95,7 +95,7 @@ async function main() {
     use(ids);
 
     let flag = false;
-    const jsssss = Jstream.over(
+    const jsssss = Jstream.from(
         (function* () {
             yield 1;
             yield 2;
@@ -123,21 +123,21 @@ async function main() {
     );
     Jstream.generate(42, 42).indexed();
 
-    console.log(
-        customers
-            .filter(c => c.purchases.length, "lessThan", 3)
-            .map(c => ({ ...c, pc: c.purchases.length }))
-            .map(c => pick(c, ["first_name", "last_name", "state", "pc"]))
-            .skip(3)
-            .take(5)
-            .filter("state", "is", "AK")
-            .groupBy("state")
-            .toArrayRecursive()[0]
-    );
+    // console.log(
+    //     customers
+    //         .filter(c => c.purchases.length, "lessThan", 3)
+    //         .map(c => ({ ...c, pc: c.purchases.length }))
+    //         .map(c => pick(c, ["first_name", "last_name", "state", "pc"]))
+    //         .skip(3)
+    //         .take(5)
+    //         .filter("state", "is", "AK")
+    //         .groupBy("state")
+    //         .toArrayRecursive()[0]
+    // );
 
     // const groups = Jstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
 
-    Jstream.over([
+    Jstream.from([
         "foo",
         "bar",
         "train",
@@ -148,7 +148,7 @@ async function main() {
         "funeral",
     ] as const)
         .filter("length", "is", 2)
-        .apply(s => console.log(s.asArrayRecursive()));
+        .then(s => console.log(s.asArrayRecursive()));
 
     // customers.append(1);
     // customers.asArray();
@@ -190,46 +190,48 @@ async function main() {
 
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
 
-    customers.filter("state", "is", "MT");
+    // customers.filter("state", "is", "MT");
 
-    console.log(Jstream.range(11).takeEveryNth(10n).toArray());
+    // console.log(Jstream.range(11).takeEveryNth(10n).toArray());
 
-    customers.filter("state", "is", "MA");
+    // customers.filter("state", "is", "MA");
 
-    const customersFiltered = customers.fold(
-        [[] as Customer[], [] as Customer[]] as const,
-        (dest, c) => {
-            if (c.purchases.length < 2) {
-                dest[0].push(c);
-            } else {
-                dest[1].push(c);
-            }
-            return dest;
-        },
-        dest => dest.map(Jstream.over)
-    );
+    // const customersFiltered = customers.fold(
+    //     [[] as Customer[], [] as Customer[]] as const,
+    //     (dest, c) => {
+    //         if (c.purchases.length < 2) {
+    //             dest[0].push(c);
+    //         } else {
+    //             dest[1].push(c);
+    //         }
+    //         return dest;
+    //     },
+    //     dest => dest.map(Jstream.over)
+    // );
 
-    AsyncJstream.over([
-        Promise.resolve(2),
-        4,
-        Promise.resolve(Promise.resolve(6)),
-    ])
-        .map(item => {
-            if (typeof item === "number") {
-                return item + 1;
-            } else {
-                return item;
-            }
-        })
-        .filter(item => item instanceof Promise)
-        .await()
-        .reduce(
-            (a, b) => Promise.resolve(a + b),
-            (total, count) => Promise.resolve(total / count)
-        )
-        .then(console.log);
+    // AsyncJstream.over([
+    //     Promise.resolve(2),
+    //     4,
+    //     Promise.resolve(Promise.resolve(6)),
+    // ])
+    //     .map(item => {
+    //         if (typeof item === "number") {
+    //             return item + 1;
+    //         } else {
+    //             return item;
+    //         }
+    //     })
+    //     .filter(item => item instanceof Promise)
+    //     .await()
+    //     .reduce(
+    //         (a, b) => Promise.resolve(a + b),
+    //         (total, count) => Promise.resolve(total / count)
+    //     )
+    //     .then(console.log);
 
     console.log(Promise.resolve(Promise.resolve(42)));
+    console.log("----------------------------\n\n\n\n\n\n\n\n")
+    console.log(Jstream.from([1,1,2,3,4,5]).sort().take(5).asArray());
 }
 
 main();

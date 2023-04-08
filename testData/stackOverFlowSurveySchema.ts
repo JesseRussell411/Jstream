@@ -19,7 +19,7 @@ export const getStackOverflowSurveySchema = lazy(
             "./testData/stack overflow survey/survey_results_schema.csv"
         );
         const parsedData: string[][] = csv.parse(data);
-        return Jstream.over(parsedData)
+        return Jstream.from(parsedData)
             .skip(1)
             .map(e => {
                 const record: Record<string, string> = {};

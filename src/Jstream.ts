@@ -168,7 +168,7 @@ export default class Jstream<T> implements Iterable<T> {
     /**
      * @returns A Jstream over the given source or the result of the given function.
      */
-    public static over<T>(
+    public static from<T>(
         source: Iterable<T> | Iterator<T> | (() => Iterable<T> | Iterator<T>)
     ): Jstream<T> {
         if (source instanceof Function) {
@@ -214,7 +214,7 @@ export default class Jstream<T> implements Iterable<T> {
     /**
      * @returns A Jstream over the entries of the given object.
      */
-    public static overObject<K extends keyof any, V>(
+    public static fromObject<K extends keyof any, V>(
         object: Record<K, V> | (() => Record<K, V>),
         {
             includeStringKeys = true,
@@ -1529,7 +1529,7 @@ export default class Jstream<T> implements Iterable<T> {
                     "cannot collapse infinite items"
                 );
             }
-            return Jstream.over(this.toArray());
+            return Jstream.from(this.toArray());
         };
     }
 
@@ -2449,9 +2449,9 @@ export default class Jstream<T> implements Iterable<T> {
      * Call the given function with the {@link Jstream}.
      * @returns The result of the function.
      */
-    public get apply() {
+    public get then() {
         const self = this;
-        return function apply<R>(action: (stream: typeof self) => R): R {
+        return function then<R>(action: (stream: typeof self) => R): R {
             return action(self);
         };
     }

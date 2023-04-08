@@ -29,5 +29,5 @@ export interface Customer {
 export const getCustomers = lazy(async (): Promise<Jstream<Customer>> => {
     const data = await fs.readFile("./testData/customerData.json");
     const customers = JSON.parse(data.toString()) as any[];
-    return Jstream.over(customers);
+    return Jstream.from(customers);
 });

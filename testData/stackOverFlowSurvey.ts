@@ -27,7 +27,7 @@ export const getStackOverflowSurvey = lazy(
             throw e;
         }
         const parsedData: string[][] = csv.parse(data);
-        return Jstream.over(parsedData)
+        return Jstream.from(parsedData)
             .skip(1)
             .map(e => {
                 const record: Record<string, string> = {};
