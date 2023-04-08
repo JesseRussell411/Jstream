@@ -210,6 +210,7 @@ export default class Jstream<T> implements Iterable<T> {
         return Jstream.of<T>();
     }
 
+    // TODO don't take non enumerable properties, like what Object.entries does
     /**
      * @returns A Jstream over the entries of the given object.
      */
@@ -217,7 +218,7 @@ export default class Jstream<T> implements Iterable<T> {
         object: Record<K, V> | (() => Record<K, V>),
         {
             includeStringKeys = true,
-            includeSymbolKeys = true,
+            includeSymbolKeys = false,
         }: {
             /** Whether to include fields indexed by symbols. Defaults to true. */
             includeSymbolKeys?: boolean;
