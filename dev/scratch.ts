@@ -148,7 +148,7 @@ async function main() {
         "funeral",
     ] as const)
         .filter("length", "is", 2)
-        .then(s => console.log(s.asArrayRecursive()));
+        .applyTo(s => console.log(s.asArrayRecursive()));
 
     // customers.append(1);
     // customers.asArray();
@@ -185,7 +185,11 @@ async function main() {
     console.log("reading survey schema...");
     const stackSurveySchema = await getStackOverflowSurveySchema();
     console.log("done");
-    console.log(stackSurveySchema.map(["qname", "question", "type", "selector", "type"]).asArray());
+    console.log(
+        stackSurveySchema
+            .map(["qname", "question", "type", "selector", "type"])
+            .asArray()
+    );
     // console.log(stackSurveySchema.map(["qname", "force_resp", "type"]).asArray());
 
     // stackSurvey.shuffle().take(5).pipe(s => console.log(s.asArray()));
@@ -230,8 +234,8 @@ async function main() {
     //     .then(console.log);
 
     console.log(Promise.resolve(Promise.resolve(42)));
-    console.log("----------------------------\n\n\n\n\n\n\n\n")
-    console.log(Jstream.from([1,1,2,3,4,5]).sort().take(5).asArray());
+    console.log("----------------------------\n\n\n\n\n\n\n\n");
+    console.log(Jstream.from([1, 1, 2, 3, 4, 5]).sort().take(5).asArray());
 }
 
 main();

@@ -2449,9 +2449,9 @@ export default class Jstream<T> implements Iterable<T> {
      * Call the given function with the {@link Jstream}.
      * @returns The result of the function.
      */
-    public get then() {
+    public get applyTo() {
         const self = this;
-        return function then<R>(action: (stream: typeof self) => R): R {
+        return function applyTo<R>(action: (stream: typeof self) => R): R {
             return action(self);
         };
     }
