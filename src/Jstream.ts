@@ -1273,7 +1273,7 @@ export default class Jstream<T> implements Iterable<T> {
                         ? keySelectorOrField
                         : (item: T) => item[keySelectorOrField];
 
-                for (const item of this) {
+                for (const item of self) {
                     const key = keySelector(item, index);
 
                     const group = groups.get(key);
