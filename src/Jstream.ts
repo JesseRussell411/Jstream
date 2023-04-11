@@ -1921,13 +1921,14 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get toArrayRecursive(): () => JstreamToArrayRecursive<this> {
-        return (): JstreamToArrayRecursive<this> => {
-            if (this.properties.infinite) {
-                throw new NeverEndingOperationError(
-                    "cannot collect infinite items into an array"
-                );
-            }
-            return recursive(this) as any;
+        const self = this;
+        return function toArrayRecursive(): JstreamToArrayRecursive<
+            typeof self
+        > {
+            self.requireThisNotInfinite(
+                "cannot collect infinite items into an array"
+            );
+            return recursive(self) as any;
         };
 
         function test(item: any): item is Jstream<any> | any[] {
@@ -1965,13 +1966,15 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get asArrayRecursive() {
-        return (): JstreamAsArrayRecursive<this> => {
-            if (this.properties.infinite) {
-                throw new NeverEndingOperationError(
-                    "cannot collect infinite items into an array"
-                );
-            }
-            return recursive(this);
+        const self = this;
+        return function asArrayRecursive(): JstreamAsArrayRecursive<
+            typeof self
+        > {
+            self.requireThisNotInfinite(
+                "cannot collect infinite items into an array"
+            );
+
+            return recursive(self);
         };
 
         function test(item: any): item is Jstream<any> | any[] {
@@ -1995,18 +1998,18 @@ export default class Jstream<T> implements Iterable<T> {
             }
 
             const result: any[] = [];
-            let recur = false;
+            let resultWasModified = false;
 
             for (const item of items) {
                 if (test(item)) {
                     result.push(recursive(item));
-                    recur = true;
+                    resultWasModified = true;
                 } else {
                     result.push(item);
                 }
             }
 
-            if (recur) {
+            if (resultWasModified) {
                 return result;
             } else {
                 return items;
