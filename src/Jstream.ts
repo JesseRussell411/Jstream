@@ -4,11 +4,14 @@ import {
     asStandardCollection,
     fisherYatesShuffle,
     groupBy,
+    max,
     memoizeIterable,
     min,
     nonIteratedCount,
     nonIteratedCountOrUndefined,
     split,
+    take,
+    takeFinal,
     toArray,
     toMap,
     toSet,
@@ -23,6 +26,7 @@ import {
 } from "./privateUtils/errorGuards";
 import { identity, resultOf, returns } from "./privateUtils/functional";
 import {
+    emptyIterable,
     iterableFromIterator,
     iterableFromIteratorGetter,
     range,
@@ -109,6 +113,7 @@ export type Comparison =
 // TODO field-comparison-value for find and findFinal, just need type definitions, then use .filter(field, comparison, value).ifEmpty(() => [resultOf(alternative)]).first/final()
 // TODO? move infinity checks into iteration instead of method body
 // TODO keep track of tuple type
+// TODO implement sorted set and circular buffer so we can go back to 0 dependencies
 
 // DESIGN NOTE: every public facing, non-static method in this class is actually an
 // accessor that returns a function bound to "this".
@@ -128,17 +133,21 @@ export type Comparison =
 // Consider changing to named arrow functions if a reason to do so comes up.
 
 export default class Jstream<T> implements Iterable<T> {
+    // =================
+    //   static fields
+    // =================
+    private static emptyJstream: Jstream<any> = new Jstream({}, emptyIterable);
     // =============
     //   private
     // =============
     private readonly getSource: () => Iterable<T>;
-    private readonly properties: JstreamProperties<T>;
+    protected readonly properties: JstreamProperties<T>;
 
     /**
      * Ensures that the {@link Jstream} is not known to be infinite. {@link https://en.wikipedia.org/wiki/Halting_problem Does not ensure that it is finite}.
      * @throws If the {@link Jstream} is known to be infinite.
      */
-    private requireThisNotInfinite(message?: string) {
+    protected requireThisNotInfinite(message?: string) {
         if (this.properties.infinite) {
             throw new NeverEndingOperationError(message);
         }
@@ -207,7 +216,7 @@ export default class Jstream<T> implements Iterable<T> {
      * @returns An empty Jstream of the given type.
      */
     public static empty<T>(): Jstream<T> {
-        return Jstream.of<T>();
+        return Jstream.emptyJstream;
     }
 
     // TODO don't take non enumerable properties, like what Object.entries does
@@ -765,22 +774,29 @@ export default class Jstream<T> implements Iterable<T> {
      *
      * @param How to identify each item. Defaults to using the item itself.
      */
-    public get unique() {
+    public get distinct() {
         const self = this;
-        return function unique(
+        return function distinct(
             identifier: (item: T) => any = identity
         ): Jstream<T> {
             return new Jstream(
                 { infinite: self.properties.infinite },
                 function* () {
-                    const yielded = new Set<any>();
+                    const source = self.getSource();
 
-                    for (const item of self) {
+                    // if source is a set and identifier is identity, the contents are already distinct
+                    if (source instanceof Set && identifier === identity) {
+                        yield* source;
+                    }
+
+                    const alreadyYielded = new Set<any>();
+
+                    for (const item of source) {
                         const id = identifier(item);
 
-                        if (!yielded.has(id)) {
+                        if (!alreadyYielded.has(id)) {
                             yield item;
-                            yielded.add(id);
+                            alreadyYielded.add(id);
                         }
                     }
                 }
@@ -1435,6 +1451,93 @@ export default class Jstream<T> implements Iterable<T> {
         };
     }
 
+    public get merge(): {
+        <O, R>(
+            other: Iterable<O>,
+            merger: (t: T, o: O, index: number) => R
+        ): Jstream<R>;
+        <O>(other: Iterable<O>): Jstream<readonly [T, O]>;
+    } {
+        const self = this;
+        return function merge<O>(
+            other: Iterable<O>,
+            merger: (t: T, o: O, index: number) => any = (t, o) => [t, o]
+        ) {
+            return new Jstream(
+                {
+                    infinite:
+                        self.properties.infinite &&
+                        other instanceof Jstream &&
+                        other.properties.infinite,
+                },
+                function* () {
+                    const iteratorT = self[Symbol.iterator]();
+                    const iteratorO = other[Symbol.iterator]();
+
+                    let i = 0;
+                    while (true) {
+                        const nextT = iteratorT.next();
+                        const nextO = iteratorO.next();
+                        if (nextT.done || nextO.done) break;
+                        yield merger(nextT.value, nextO.value, i);
+                        i++;
+                    }
+                }
+            );
+        };
+    }
+
+    public get mergeLoose(): {
+        <O, R>(
+            other: Iterable<O>,
+            merger: (t: T | undefined, o: O | undefined, index: number) => R
+        ): Jstream<R>;
+        <O>(other: Iterable<O>): Jstream<
+            readonly [T | undefined, O | undefined]
+        >;
+    } {
+        const self = this;
+        return function merge<O>(
+            other: Iterable<O>,
+            merger: (
+                t: T | undefined,
+                o: O | undefined,
+                index: number
+            ) => any = (t, o) => [t, o]
+        ) {
+            return new Jstream(
+                {
+                    infinite:
+                        self.properties.infinite &&
+                        other instanceof Jstream &&
+                        other.properties.infinite,
+                },
+                function* () {
+                    const iteratorT = self[Symbol.iterator]();
+                    const iteratorO = other[Symbol.iterator]();
+                    let nextT = iteratorT.next();
+                    let nextO = iteratorO.next();
+
+                    let i = 0;
+                    while (!nextT.done && !nextO.done) {
+                        yield merger(nextT.value, nextO.value, i);
+                        nextT = iteratorT.next();
+                        nextO = iteratorO.next();
+                        i++;
+                    }
+                    while (!nextT.done) {
+                        yield nextT.value;
+                        nextT = iteratorT.next();
+                    }
+                    while (!nextO.done) {
+                        yield nextO.value;
+                        nextO = iteratorO.next();
+                    }
+                }
+            );
+        };
+    }
+
     public get interleave() {
         const self = this;
         return function interleave<O>(items: Iterable<O>): Jstream<T | O> {
@@ -1920,16 +2023,14 @@ export default class Jstream<T> implements Iterable<T> {
         }) as any;
     }
 
-    public get toArrayRecursive(): () => JstreamToArrayRecursive<this> {
-        const self = this;
-        return function toArrayRecursive(): JstreamToArrayRecursive<
-            typeof self
-        > {
-            self.requireThisNotInfinite(
+    public get toArrayRecursive() {
+        const toArrayRecursive = (): JstreamToArrayRecursive<Jstream<T>> => {
+            this.requireThisNotInfinite(
                 "cannot collect infinite items into an array"
             );
-            return recursive(self) as any;
+            return recursive(this) as any;
         };
+        return toArrayRecursive;
 
         function test(item: any): item is Jstream<any> | any[] {
             return item instanceof Jstream || Array.isArray(item);
@@ -1966,16 +2067,14 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get asArrayRecursive() {
-        const self = this;
-        return function asArrayRecursive(): JstreamAsArrayRecursive<
-            typeof self
-        > {
-            self.requireThisNotInfinite(
+        const asArrayRecursive = (): JstreamAsArrayRecursive<Jstream<T>> => {
+            this.requireThisNotInfinite(
                 "cannot collect infinite items into an array"
             );
 
-            return recursive(self);
+            return recursive(this);
         };
+        return asArrayRecursive;
 
         function test(item: any): item is Jstream<any> | any[] {
             return item instanceof Jstream || Array.isArray(item);
@@ -2106,17 +2205,17 @@ export default class Jstream<T> implements Iterable<T> {
          * Finds the smallest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint): T[];
+        (count: number | bigint): Jstream<T>;
         /**
          * Finds the smallest items in the stream using the given comparator.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, comparator: Comparator<T>): T[];
+        (count: number | bigint, comparator: Comparator<T>): Jstream<T>;
         /**
          * Finds the smallest items in the stream using the mapping from the given key selector and {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, keySelector: (item: T) => any): T[];
+        (count: number | bigint, keySelector: (item: T) => any): Jstream<T>;
     } {
         const self = this;
         const externalMin = min;
@@ -2131,13 +2230,17 @@ export default class Jstream<T> implements Iterable<T> {
                 "cannot find smallest of infinite items"
             );
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
-                const [count, order] = args;
+                const [count, order = smartComparator] = args;
                 if (count === Infinity) {
-                    return self.sortBy(order ?? smartComparator);
+                    return self.sortBy(order);
                 }
-                return externalMin(self, count, order ?? smartComparator);
+                return new Jstream(
+                    { expensiveSource: true, freshSource: true },
+                    () => externalMin(self, count, order)
+                );
             } else {
-                return externalMin(self, 1, args[0] ?? smartComparator)[0];
+                const [order = smartComparator] = args;
+                return externalMin(self, 1, order)[0];
             }
         } as any;
     }
@@ -2162,17 +2265,17 @@ export default class Jstream<T> implements Iterable<T> {
          * Finds the largest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint): T[];
+        (count: number | bigint): Jstream<T>;
         /**
          * Finds the largest items in the stream using the given comparator.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, comparator: Comparator<T>): T[];
+        (count: number | bigint, comparator: Comparator<T>): Jstream<T>;
         /**
          * Finds the largest items in the stream using the mapping from the given key selector and {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, keySelector: (item: T) => any): T[];
+        (count: number | bigint, keySelector: (item: T) => any): Jstream<T>;
     } {
         const self = this;
         return function max(
@@ -2186,17 +2289,15 @@ export default class Jstream<T> implements Iterable<T> {
                 "cannot find largest of infinite items"
             );
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
-                const [count, order] = args;
+                const [count, order = smartComparator] = args;
                 if (count === Infinity) {
                     return self.sortByDescending(order ?? smartComparator);
                 }
-                return min(self, count, reverseOrder(order ?? smartComparator));
+                if (count === 0 || count === 0n) return Jstream.empty();
+                return self.min(count, reverseOrder(order));
             } else {
-                return min(
-                    self,
-                    1,
-                    reverseOrder(args[0] ?? smartComparator)
-                )[0];
+                const [order = smartComparator] = args;
+                return self.min(reverseOrder(order));
             }
         } as any;
     }
@@ -2634,17 +2735,35 @@ export default class Jstream<T> implements Iterable<T> {
     }
 }
 
+export type SortedJstreamProperties<T> = JstreamProperties<T> &
+    Readonly<
+        Partial<{
+            /** If true: the source has already been sorted by the order provided to the {@link SortedJstream}. */
+            preSorted: boolean;
+        }>
+    >;
+
 export class SortedJstream<T> extends Jstream<T> {
     /** the order to sort the items in */
     private readonly order: readonly Order<T>[];
     /** the original getSource function */
     private readonly getUnsortedSource: () => Iterable<T>;
     /** the properties of the original stream */
-    private readonly unsortedProperties: JstreamProperties<T>;
+    private readonly unsortedProperties: SortedJstreamProperties<T>;
+    /** The comparator that is used for sorting. */
+    private readonly comparator: Comparator<T>;
+
+    public static empty<T>(order: readonly Order<T>[] = [smartComparator]) {
+        return new SortedJstream(
+            order,
+            { preSorted: true, freshSource: true },
+            () => []
+        );
+    }
 
     public constructor(
         order: readonly Order<T>[],
-        properties: JstreamProperties<T> = {},
+        properties: SortedJstreamProperties<T> = {},
         getSource: () => Iterable<T>
     ) {
         if (properties.infinite) {
@@ -2652,6 +2771,8 @@ export class SortedJstream<T> extends Jstream<T> {
         }
         super({ expensiveSource: true, freshSource: true }, () => {
             const source = getSource();
+            if (this.unsortedProperties.preSorted) return source;
+
             let arr: T[] = (() => {
                 if (properties.freshSource && isArray(source)) {
                     return source;
@@ -2660,13 +2781,14 @@ export class SortedJstream<T> extends Jstream<T> {
                 }
             })();
 
-            arr.sort(multiCompare(this.order));
+            arr.sort(this.comparator);
             return arr;
         });
 
         this.getUnsortedSource = getSource;
         this.unsortedProperties = properties;
         this.order = order;
+        this.comparator = multiCompare(order);
     }
 
     public get thenBy(): {
@@ -2700,4 +2822,79 @@ export class SortedJstream<T> extends Jstream<T> {
             );
         };
     }
+    // TODO custom optimized min and max
+
+    public get take() {
+        const self = this;
+        const externalTake = take;
+        return function take(count: number | bigint): SortedJstream<T> {
+            if (count === Infinity) return self;
+            if (count === 0 || count === 0n) {
+                return SortedJstream.empty(self.order);
+            }
+            requireNonNegative(count);
+            requireInteger(count);
+
+            return new SortedJstream(
+                self.order,
+                { preSorted: true, expensiveSource: true, freshSource: true },
+                () => {
+                    if (self.unsortedProperties.preSorted) {
+                        return externalTake(self.getUnsortedSource(), count);
+                    } else {
+                        return min(
+                            self.getUnsortedSource(),
+                            count,
+                            self.comparator
+                        );
+                    }
+                }
+            );
+        };
+    }
+
+    public get takeFinal() {
+        const self = this;
+        const externalTakeFinal = takeFinal;
+        return function takeFinal(count: number | bigint): SortedJstream<T> {
+            if (count === Infinity) return self;
+            if (count === 0 || count === 0n) {
+                return SortedJstream.empty(self.order);
+            }
+            requireNonNegative(count);
+            requireInteger(count);
+
+            return new SortedJstream(
+                self.order,
+                { preSorted: true, expensiveSource: true, freshSource: true },
+                () => {
+                    if (self.unsortedProperties.preSorted) {
+                        return externalTakeFinal(
+                            self.getUnsortedSource(),
+                            count
+                        );
+                    } else {
+                        return max(
+                            self.getUnsortedSource(),
+                            count,
+                            self.comparator
+                        );
+                    }
+                }
+            );
+        };
+    }
+
+    // public get skip() {
+    //     const skip = (count: number | bigint) => {
+    //         if (typeof count === "bigint") return super.skip(count);
+    //         const nonIteratedCount = this.nonIteratedCountOrUndefined();
+    //         if (nonIteratedCount === undefined) return super.skip(count);
+
+    //         return this.takeFinal(
+    //             Math.max(0, nonIteratedCount - Number(count))
+    //         );
+    //     };
+    //     return skip;
+    // }
 }

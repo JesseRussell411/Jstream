@@ -11,10 +11,17 @@ import {
     StandardCollection,
 } from "../types/collections";
 import { Order } from "../types/sorting";
+import StableSortedList from "./dataStructures/StableSortedList";
 import { asyncForEach, getIterator } from "./async";
-import { requireGreaterThanZero, requireSafeInteger } from "./errorGuards";
+import {
+    requireGreaterThanZero,
+    requireNonNaN,
+    requireNonNegative,
+    requireSafeInteger,
+} from "./errorGuards";
 import { iterableFromIteratorGetter } from "./iterable";
-import { isIterable, isStandardCollection } from "./typeGuards";
+import { isArray, isStandardCollection } from "./typeGuards";
+import CircularBuffer from "mnemonist/circular-buffer";
 
 /**
  * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
@@ -277,70 +284,137 @@ export function nonIteratedCountOrUndefined(
     return undefined;
 }
 
+/**
+ * Finds the n smallest items in the iterable.
+ * @returns An array of the items in ascending order.
+ * @param count n
+ */
 export function min<T>(
     items: Iterable<T>,
     count: number | bigint,
     order: Order<T> = smartComparator
-) {
+): T[] {
     requireGreaterThanZero(requireSafeInteger(count));
-    const STRATEGY_COUNT_THRESHOLD = 10;
 
     const comparator = asComparator(order);
-
-    if (count > STRATEGY_COUNT_THRESHOLD) {
-        const itemsLength = nonIteratedCountOrUndefined(items);
-        if (itemsLength !== undefined && count > Math.sqrt(itemsLength)) {
-            const result = [...items];
-            result.sort(comparator);
-            return result.slice(0, Number(count));
-        }
-    }
-
-    const result: T[] = [];
-
+    const result = new StableSortedList(comparator, Number(count));
     for (const item of items) {
-        let insertionFlag = false;
-
-        for (let i = 0; i < result.length; i++) {
-            if (comparator(item, result[i] as T) < 0) {
-                insertionFlag = true;
-
-                if (result.length < count) {
-                    result.length += 1;
-                }
-                result.copyWithin(i + 1, i, result.length);
-
-                result[i] = item;
-                break;
-            }
-        }
-
-        if (result.length < count && insertionFlag === false) {
-            result.push(item);
-        }
+        result.add(item);
     }
+    return result.toArray();
+    // const result = new SortedSet<[T, ...T[]]>(
+    //     undefined,
+    //     (a, b) => comparator(a[0], b[0]) === 0,
+    //     (a, b) => comparator(a[0], b[0])
+    // );
 
-    return result;
+    // let resultSize = 0n;
+
+    // for (const item of items) {
+    //     const resultIsFull = resultSize >= count;
+
+    //     const group = result.get([item]);
+    //     if (group !== undefined) {
+    //         group.push(item);
+    //         if (resultIsFull) {
+    //             const greatestGroup = result.findGreatest()!.value; // There is definitely at least one group.
+    //             if (greatestGroup.length === 1) {
+    //                 result.remove(greatestGroup);
+    //             } else {
+    //                 greatestGroup.length--;
+    //             }
+    //         } else {
+    //             resultSize++;
+    //         }
+    //     } else if (resultIsFull) {
+    //         const greatestGroup = result.findGreatest()!.value;
+    //         if (comparator(item, greatestGroup[0]) < 0) {
+    //             if (greatestGroup.length === 1) {
+    //                 result.remove(greatestGroup);
+    //             } else {
+    //                 greatestGroup.length--;
+    //             }
+    //             result.add([item]);
+    //         }
+    //     } else {
+    //         resultSize++;
+    //         result.add([item]);
+    //     }
+    // }
+
+    // return result.toArray().flat();
+}
+
+/**
+ * Finds the n smallest items in the iterable.
+ * @returns An array of the items in ascending order.
+ * @param count n
+ */
+export function max<T>(
+    items: Iterable<T>,
+    count: number | bigint,
+    order: Order<T> = smartComparator
+): T[] {
+    requireGreaterThanZero(requireSafeInteger(count));
+
+    const comparator = asComparator(order);
+    const result = new StableSortedList(comparator, Number(count), false);
+    for (const item of items) {
+        result.add(item);
+    }
+    return result.toArray();
+
+    // const comparator = asComparator(order);
+    // const result = new SortedSet<[T, ...T[]]>(
+    //     undefined,
+    //     (a, b) => comparator(a[0], b[0]) === 0,
+    //     (a, b) => comparator(a[0], b[0])
+    // );
+
+    // let resultSize = 0n;
+
+    // for (const item of items) {
+    //     const resultIsFull = resultSize >= count;
+
+    //     const group = result.get([item]);
+    //     if (group !== undefined) {
+    //         group.push(item);
+    //         if (resultIsFull) {
+    //             const leastGroup = result.findLeast()!.value; // There is definitely at least one group.
+    //             if (leastGroup.length === 1) {
+    //                 result.remove(leastGroup);
+    //             } else {
+    //                 leastGroup.length--;
+    //             }
+    //         } else {
+    //             resultSize++;
+    //         }
+    //     } else if (resultIsFull) {
+    //         const greatestGroup = result.findLeast()!.value;
+    //         if (comparator(item, greatestGroup[0]) > 0) {
+    //             if (greatestGroup.length === 1) {
+    //                 result.remove(greatestGroup);
+    //             } else {
+    //                 greatestGroup.length--;
+    //             }
+    //             result.add([item]);
+    //         }
+    //     } else {
+    //         resultSize++;
+    //         result.add([item]);
+    //     }
+    // }
+
+    // return result.toArray().flat();
 }
 
 export async function asyncMin<T>(
-    items: AwaitableIterable<T>,
+    items: AsyncIterable<T>,
     count: number | bigint,
     order: Order<T> = smartComparator
 ): Promise<T[]> {
     requireGreaterThanZero(requireSafeInteger(count));
-    const STRATEGY_COUNT_THRESHOLD = 10;
-
     const comparator = asComparator(order);
-
-    if (isIterable(items) && count > STRATEGY_COUNT_THRESHOLD) {
-        const itemsLength = nonIteratedCountOrUndefined(items);
-        if (itemsLength !== undefined && count > Math.sqrt(itemsLength)) {
-            const result = [...items];
-            result.sort(comparator);
-            return result.slice(0, Number(count));
-        }
-    }
 
     const result: T[] = [];
 
@@ -459,5 +533,36 @@ export function asStandardCollection<T>(
         return iterable;
     } else {
         return [...iterable];
+    }
+}
+
+export function* take<T>(
+    iterable: Iterable<T>,
+    count: number | bigint
+): Iterable<T> {
+    requireNonNegative(requireNonNaN(count));
+    let i = 0n;
+    for (const item of iterable) {
+        if (i < count) {
+            yield item;
+        } else break;
+        i++;
+    }
+}
+
+export function* takeFinal<T>(
+    iterable: Iterable<T>,
+    count: number | bigint
+): Iterable<T> {
+    if (isArray(iterable)) {
+        for (let i = Number(count); i < iterable.length; i++) {
+            yield iterable[i] as T;
+        }
+    } else {
+        const result = new CircularBuffer<T>(Array, Number(count));
+        for (const item of iterable) {
+            result.push(item);
+        }
+        yield* result;
     }
 }

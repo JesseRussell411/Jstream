@@ -1,5 +1,3 @@
-import { AwaitableIterable } from "../types/async";
-
 /**
  * @returns An iterable over the iterator from the given function. Unlike Generators, this can be iterated more than once.
  */
@@ -11,20 +9,23 @@ export function iterableFromIteratorGetter<T>(
     };
 }
 
-
-export function iterableFromIterator<T>(iterator: Iterator<T>): Iterable<T>{
+export function iterableFromIterator<T>(iterator: Iterator<T>): Iterable<T> {
     let returnedIterator = iterator;
     return {
-        [Symbol.iterator](){
+        [Symbol.iterator]() {
             const result = returnedIterator;
             returnedIterator = emptyIterator<T>();
             return result;
-        }
-    }
+        },
+    };
 }
 
-export function lazyIterable<T>(iterableGetter: () => Iterable<T>): Iterable<T> {
-    return iterableFromIteratorGetter(() => iterableGetter()[Symbol.iterator]());
+export function lazyIterable<T>(
+    iterableGetter: () => Iterable<T>
+): Iterable<T> {
+    return iterableFromIteratorGetter(() =>
+        iterableGetter()[Symbol.iterator]()
+    );
 }
 
 const _emptyIterator: Iterator<any> = {
@@ -39,7 +40,7 @@ const _emptyAsyncIterator: AsyncIterator<any> = {
     },
 };
 
-const _emptyIterable: AwaitableIterable<any> = {
+const _emptyIterable: Iterable<any> & AsyncIterable<any> = {
     [Symbol.iterator]() {
         return _emptyIterator;
     },
@@ -49,7 +50,7 @@ const _emptyIterable: AwaitableIterable<any> = {
     },
 };
 
-export function emptyIterable<T = any>(): AwaitableIterable<T> {
+export function emptyIterable<T = any>(): Iterable<T> & AsyncIterable<T> {
     return _emptyIterable;
 }
 
