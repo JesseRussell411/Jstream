@@ -134,7 +134,7 @@ export function smartComparator(a: any, b: any): number {
         case 6:
             //TODO make sure this is how you compare dates in javascript
             return (
-                (a as Date).getMilliseconds() - (b as Date).getMilliseconds()
+                (a as Date).getTime() - (b as Date).getTime()
             );
 
         // array
