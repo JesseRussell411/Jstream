@@ -23,6 +23,7 @@ import {
     requireNonNaN,
     requireNonNegative,
     requireSafeInteger,
+    requireSafeIntegerOrInfinity,
 } from "./privateUtils/errorGuards";
 import { identity, resultOf, returns } from "./privateUtils/functional";
 import {
@@ -1133,26 +1134,21 @@ export default class Jstream<T> implements Iterable<T> {
 
     /** Takes the given number of items from the end of the stream and skips the rest. */
     public get takeFinal() {
-        return (count: number | bigint): Jstream<T> => {
-            requireNonNegative(requireSafeInteger(count));
-            if (this.properties.infinite) {
-                throw new NeverEndingOperationError(
-                    "cannot take the final items of infinite items"
-                );
-            }
+        const self = this;
+        const externalTakeFinal = takeFinal;
+        return function takeFinal(count: number | bigint): Jstream<T> {
+            if (count === Infinity) return self;
+            requireNonNegative(requireSafeIntegerOrInfinity(count));
+            self.requireThisNotInfinite(
+                "cannot take the final items of infinite items"
+            );
 
-            if (count === 0 || count === 0n) return this;
-            if (typeof count === "bigint") return this.takeFinal(Number(count));
+            if (count === 0 || count === 0n) return Jstream.empty();
 
-            const self = this;
-            return new Jstream({}, function* () {
-                // TODO use a window if source isn't an array
-                const array = self.asArray();
-                if (count >= array.length) return;
-                for (let i = array.length - count; i < array.length; i++) {
-                    yield array[i] as T;
-                }
-            });
+            return new Jstream(
+                { infinite: self.properties.infinite && count === Infinity },
+                () => externalTakeFinal(self, count)
+            );
         };
     }
 

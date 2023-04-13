@@ -1,7 +1,6 @@
 import { Comparator } from "../../types/sorting";
 import SortedSet from "collections/sorted-set";
-import CircularBuffer from "mnemonist/circular-buffer";
-type Group<T> = CircularBuffer<T>;
+type Group<T> = [T, ...T[]];
 
 export default class StableSortedList<T> {
     private sortedSet: typeof SortedSet<Group<T>> extends {
@@ -19,7 +18,7 @@ export default class StableSortedList<T> {
         keepLeast: boolean = true
     ) {
         const groupComparator = (a: Group<T>, b: Group<T>) =>
-            comparator(a.get(0) as T, b.get(0) as T);
+            comparator(a[0] as T, b[0] as T);
 
         this.sortedSet = new SortedSet(
             [],
@@ -34,9 +33,9 @@ export default class StableSortedList<T> {
 
     public add(item: T) {
         const isFull = this.length >= this.maxLength;
-        const group = this.sortedSet.get(CircularBuffer.from([item], Array));
+        const group = this.sortedSet.get([item]);
         if (group === undefined) {
-            this.sortedSet.add(CircularBuffer.from([item], Array));
+            this.sortedSet.add([item]);
         } else {
             group.push(item);
         }
@@ -44,17 +43,17 @@ export default class StableSortedList<T> {
         if (isFull) {
             if (this.keepLeast) {
                 const greatestGroup = this.sortedSet.findGreatest()!.value;
-                if (greatestGroup.size === 1) {
+                if (greatestGroup.length === 1) {
                     this.sortedSet.remove(greatestGroup);
                 } else {
                     greatestGroup.pop();
                 }
             } else {
                 const leastGroup = this.sortedSet.findLeast()!.value;
-                if (leastGroup.size === 1) {
+                if (leastGroup.length === 1) {
                     this.sortedSet.remove(leastGroup);
                 } else {
-                    //TODO MAKE THIS 0(1), reverse array?, ttw tail list?
+                    // TODO find way to make this 0(1) like pop
                     leastGroup.shift();
                 }
             }
@@ -64,6 +63,8 @@ export default class StableSortedList<T> {
     }
 
     public toArray(): T[] {
+
+        console.log("inside class",this.sortedSet.toArray());
         return (this.sortedSet.toArray() as Group<T>[]).flatMap(group => [
             ...group,
         ]);

@@ -554,7 +554,9 @@ export function* takeFinal<T>(
     iterable: Iterable<T>,
     count: number | bigint
 ): Iterable<T> {
-    if (isArray(iterable)) {
+    if (count === Infinity) {
+        return iterable;
+    } else if (isArray(iterable)) {
         for (let i = Number(count); i < iterable.length; i++) {
             yield iterable[i] as T;
         }

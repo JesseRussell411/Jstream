@@ -309,6 +309,9 @@ async function main() {
     console.log([...cb]);
     cb.pop();
     console.log([...cb]);
+    console.log(cb.size);
+
+    console.log(cb.get(0))
 
 
 

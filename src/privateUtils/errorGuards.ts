@@ -108,6 +108,13 @@ export function requireSafeNumber<N extends number | bigint>(number: N): N {
     return number;
 }
 
+export function requireSafeNumberOrInfinity<N extends number | bigint>(
+    number: N
+): N {
+    if (number === Infinity || number === -Infinity) return number;
+    return requireSafeNumber(number);
+}
+
 /**
  * Ensures that the number is an integer greater than or equal to {@link Number.MIN_SAFE_INTEGER},
  * and less than or equal to {@link Number.MAX_SAFE_INTEGER}.
@@ -115,6 +122,13 @@ export function requireSafeNumber<N extends number | bigint>(number: N): N {
  */
 export function requireSafeInteger<N extends number | bigint>(number: N): N {
     return requireInteger(requireSafeNumber(number));
+}
+
+export function requireSafeIntegerOrInfinity<N extends number | bigint>(
+    number: N
+): N {
+    if (number === Infinity || number === -Infinity) return number;
+    return requireSafeInteger(number);
 }
 
 type RequireNumber = {
