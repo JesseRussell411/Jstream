@@ -20,7 +20,7 @@
     "homepage": "https://github.com/JesseRussell411/jStream#readme",
     "devDependencies": {
         "@types/jest": "^29.2.2",
-        "@types/node": "^18.0.4",
+        "@types/node": "^18.15.11",
         "csv": "^6.2.8",
         "jest": "^29.2.2",
         "ts-jest": "^29.0.3",
@@ -30,10 +30,5 @@
     "prettier": {
         "tabWidth": 4,
         "arrowParens": "avoid"
-    },
-    "dependencies": {
-        "@types/collections": "^5.1.2",
-        "collections": "^5.1.13",
-        "mnemonist": "^0.39.5"
     }
 }

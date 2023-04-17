@@ -9,9 +9,8 @@ import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySch
 import { requireNumberToBe } from "../src/privateUtils/errorGuards";
 import AsyncJstream from "../src/AsyncJstream";
 import { max, min, takeFinal } from "../src/privateUtils/data";
-import SortedSet from "collections/sorted-set";
 import { reverseOrder } from "../src/sorting/sorting";
-import { CircularBuffer } from "mnemonist";
+import DoubleLinkedList from "../src/privateUtils/dataStructures/DoubleLinkedList";
 use(inspect);
 
 /** stops unused errors */
@@ -258,99 +257,42 @@ async function main() {
     // console.log("----------------------------\n\n\n\n\n\n\n\n");
     // console.log(Jstream.from([1, 1, 2, 3, 4, 5]).sort().take(5).asArray());
 
-    const ss = new SortedSet(undefined, undefined, (a, b) => a - b);
-    ss.add(1);
-    ss.add(10);
-    ss.add(2);
-    ss.add(2);
-    ss.add(6);
-    ss.add(5);
-    ss.add(2);
-
-    console.log(ss.toArray());
-
-    console.log(ss.findGreatest());
-    ss.remove(ss.findGreatest()?.value);
-    console.log(ss.toArray());
-
-    const arr = [
-        "11",
-        "62",
-        "63",
-        "33",
-        "74",
-        "75",
-        "86",
-        "67",
-        "88",
-        "89",
-        "810",
-        "611",
-        "312",
-    ];
-
-    console.log("max", max(arr, 7, (a, b) => a.charAt(0).localeCompare(b.charAt(0))));
-
-    console.log([...takeFinal([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 4)]);
-
-    const cb = new CircularBuffer(Array, 10);
-
-    cb.push(1);
-    cb.push(2);
-    cb.push(3);
-    cb.push(4);
-    cb.push(5);
-    cb.push(6);
-    cb.push(7);
-    
-    console.log([...cb]);
-    cb.shift();
-    cb.shift();
-    console.log([...cb]);
-    cb.pop();
-    console.log([...cb]);
-    console.log(cb.size);
-
-    console.log(cb.get(0))
-
-
-
     // arr.sort((a, b) => a.charAt(0).localeCompare(b.charAt(0)));
     // console.log(arr);
 
-    // for (let i = 0; i < 5; i++) {
-    //     let start = performance.now();
-    //     for (let j = 0; j < 10000; j++) {
-    //         const sqrt = Math.sqrt(Number.MAX_SAFE_INTEGER);
-    //     }
-    //     let stop = performance.now();
+    for (let i = 0; i < 5; i++) {
+        let start = performance.now();
+        for (let j = 0; j < 10000; j++) {
+            const sqrt = Math.sqrt(Number.MAX_SAFE_INTEGER);
+        }
+        let stop = performance.now();
 
-    //     console.log(stop - start);
-    // }
-    // console.log("=============");
+        console.log(stop - start);
+    }
+    console.log("=============");
 
-    // const items = Jstream.generate(
-    //     () => Math.trunc(Math.random() * 10_000_000_000),
-    //     1_000_000
-    // ).toArray();
+    const items = Jstream.generate(
+        () => Math.trunc(Math.random() * 10_000_000_000),
+        1_000_000
+    ).toArray();
 
-    // for (let i = 0; i < 5; i++) {
-    //     let start = performance.now();
-    //     const minItems = min(items, 5000, (a, b) => a - b);
-    //     let stop = performance.now();
-    //     console.log(stop - start);
-    // }
+    for (let i = 0; i < 5; i++) {
+        let start = performance.now();
+        const minItems = min(items, 100, (a, b) => a - b);
+        let stop = performance.now();
+        console.log(stop - start);
+    }
 
-    // console.log("=====");
+    console.log("=====");
 
-    // for (let i = 0; i < 5; i++) {
-    //     let start = performance.now();
-    //     const minItems = [...items];
-    //     minItems.sort((a, b) => a - b);
-    //     minItems.length = 2000;
-    //     let stop = performance.now();
-    //     console.log(stop - start);
-    // }
+    for (let i = 0; i < 5; i++) {
+        let start = performance.now();
+        const minItems = [...items];
+        minItems.sort((a, b) => a - b);
+        minItems.length = 1000;
+        let stop = performance.now();
+        console.log(stop - start);
+    }
 }
 
 main();

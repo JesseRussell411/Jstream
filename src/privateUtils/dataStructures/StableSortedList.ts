@@ -1,72 +1,66 @@
 import { Comparator } from "../../types/sorting";
-import SortedSet from "collections/sorted-set";
-type Group<T> = [T, ...T[]];
+import AVLTree from "./AVLTree";
+import DoubleLinkedList from "./DoubleLinkedList";
+type Group<T> = DoubleLinkedList<T>;
 
-export default class StableSortedList<T> {
-    private sortedSet: typeof SortedSet<Group<T>> extends {
-        new (...args: any[]): infer Instance;
-    }
-        ? Instance
-        : never;
-    private maxLength: number;
-    private length: number;
-    private keepLeast: boolean;
+export default class StableSortedList<T> implements Iterable<T> {
+    private readonly sortedTree: AVLTree<T, Group<T>>;
+    private readonly maxLength: number;
+    private length: number = 0;
+    private readonly keepLeast: boolean;
 
     public constructor(
         comparator: Comparator<T>,
         maxLength: number = Infinity,
         keepLeast: boolean = true
     ) {
-        const groupComparator = (a: Group<T>, b: Group<T>) =>
-            comparator(a[0] as T, b[0] as T);
-
-        this.sortedSet = new SortedSet(
-            [],
-            (a, b) => groupComparator(a, b) === 0,
-            groupComparator
-        );
+        this.sortedTree = new AVLTree(comparator);
 
         this.maxLength = maxLength;
-        this.length = 0;
         this.keepLeast = keepLeast;
     }
 
-    public add(item: T) {
+    public *[Symbol.iterator](): Iterator<T> {
+        for (const group of this.sortedTree) {
+            yield* group[1];
+        }
+    }
+
+    public add(item: T): void {
+        if (this.maxLength <= 0) return;
+
         const isFull = this.length >= this.maxLength;
-        const group = this.sortedSet.get([item]);
+
+        // add item
+        const group = this.sortedTree.getValue(item);
         if (group === undefined) {
-            this.sortedSet.add([item]);
+            this.sortedTree.put(item, DoubleLinkedList.of(item));
         } else {
             group.push(item);
         }
 
+        // remove an item if full
         if (isFull) {
             if (this.keepLeast) {
-                const greatestGroup = this.sortedSet.findGreatest()!.value;
+                const greatest = this.sortedTree.getGreatest()!;
+                const greatestGroup = greatest[1];
                 if (greatestGroup.length === 1) {
-                    this.sortedSet.remove(greatestGroup);
+                    this.sortedTree.remove(greatest[0]);
                 } else {
                     greatestGroup.pop();
                 }
             } else {
-                const leastGroup = this.sortedSet.findLeast()!.value;
+                const least = this.sortedTree.getLeast()!;
+                const leastGroup = least[1];
+
                 if (leastGroup.length === 1) {
-                    this.sortedSet.remove(leastGroup);
+                    this.sortedTree.remove(least[0]);
                 } else {
-                    // TODO find way to make this 0(1) like pop
                     leastGroup.shift();
                 }
             }
         } else {
             this.length++;
         }
-    }
-
-    public toArray(): T[] {
-
-        console.log("inside class",this.sortedSet.toArray());
-        return (this.sortedSet.toArray() as Group<T>[]).flatMap(group => [
-            ...group,
-        ]);
     }
 }

@@ -11,8 +11,9 @@ import {
     StandardCollection,
 } from "../types/collections";
 import { Order } from "../types/sorting";
-import StableSortedList from "./dataStructures/StableSortedList";
 import { asyncForEach, getIterator } from "./async";
+import DoubleLinkedList from "./dataStructures/DoubleLinkedList";
+import StableSortedList from "./dataStructures/StableSortedList";
 import {
     requireGreaterThanZero,
     requireNonNaN,
@@ -21,7 +22,6 @@ import {
 } from "./errorGuards";
 import { iterableFromIteratorGetter } from "./iterable";
 import { isArray, isStandardCollection } from "./typeGuards";
-import CircularBuffer from "mnemonist/circular-buffer";
 
 /**
  * @returns An Iterable that caches it's output so that subsequent iterations pull from the cache instead of the original.
@@ -301,7 +301,7 @@ export function min<T>(
     for (const item of items) {
         result.add(item);
     }
-    return result.toArray();
+    return [...result];
     // const result = new SortedSet<[T, ...T[]]>(
     //     undefined,
     //     (a, b) => comparator(a[0], b[0]) === 0,
@@ -362,7 +362,7 @@ export function max<T>(
     for (const item of items) {
         result.add(item);
     }
-    return result.toArray();
+    return [...result];
 
     // const comparator = asComparator(order);
     // const result = new SortedSet<[T, ...T[]]>(
@@ -561,9 +561,11 @@ export function* takeFinal<T>(
             yield iterable[i] as T;
         }
     } else {
-        const result = new CircularBuffer<T>(Array, Number(count));
+        // TODO use circular buffer instead
+        const result = new DoubleLinkedList<T>();
         for (const item of iterable) {
             result.push(item);
+            if (result.length > count) result.shift();
         }
         yield* result;
     }
