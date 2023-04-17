@@ -9,6 +9,7 @@ import {
     min,
     nonIteratedCount,
     nonIteratedCountOrUndefined,
+    skip,
     split,
     take,
     takeFinal,
@@ -141,7 +142,7 @@ export default class Jstream<T> implements Iterable<T> {
     // =============
     //   private
     // =============
-    private readonly getSource: () => Iterable<T>;
+    protected readonly getSource: () => Iterable<T>;
     protected readonly properties: JstreamProperties<T>;
 
     /**
@@ -672,8 +673,11 @@ export default class Jstream<T> implements Iterable<T> {
     } {
         const self = this;
         return function sortBy(order: Order<T>): SortedJstream<T> {
-            self.requireThisNotInfinite("cannot sort infinite items");
-            return new SortedJstream([order], self.properties, self.getSource);
+            return new SortedJstream(
+                order,
+                asSortedJstreamProperties(self.properties),
+                self.getSource
+            );
         };
     }
 
@@ -2227,16 +2231,15 @@ export default class Jstream<T> implements Iterable<T> {
             );
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
                 const [count, order = smartComparator] = args;
-                if (count === Infinity) {
-                    return self.sortBy(order);
-                }
+                if (count === Infinity) return self.sortBy(order);
                 return new Jstream(
                     { expensiveSource: true, freshSource: true },
                     () => externalMin(self, count, order)
                 );
             } else {
                 const [order = smartComparator] = args;
-                return externalMin(self, 1, order)[0];
+                for (const first of externalMin(self, 1, order)) return first;
+                return undefined;
             }
         } as any;
     }
@@ -2274,6 +2277,7 @@ export default class Jstream<T> implements Iterable<T> {
         (count: number | bigint, keySelector: (item: T) => any): Jstream<T>;
     } {
         const self = this;
+        const externalMax = max;
         return function max(
             ...args:
                 | [count: number | bigint, order: Order<T>]
@@ -2282,18 +2286,19 @@ export default class Jstream<T> implements Iterable<T> {
                 | []
         ) {
             self.requireThisNotInfinite(
-                "cannot find largest of infinite items"
+                "cannot find smallest of infinite items"
             );
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
                 const [count, order = smartComparator] = args;
-                if (count === Infinity) {
-                    return self.sortByDescending(order ?? smartComparator);
-                }
-                if (count === 0 || count === 0n) return Jstream.empty();
-                return self.min(count, reverseOrder(order));
+                if (count === Infinity) return self.sortBy(order);
+                return new Jstream(
+                    { expensiveSource: true, freshSource: true },
+                    () => externalMax(self, count, order)
+                );
             } else {
                 const [order = smartComparator] = args;
-                return self.min(reverseOrder(order));
+                for (const first of externalMax(self, 1, order)) return first;
+                return undefined;
             }
         } as any;
     }
@@ -2731,8 +2736,18 @@ export default class Jstream<T> implements Iterable<T> {
     }
 }
 
-export type SortedJstreamProperties<T> = JstreamProperties<T> &
-    Readonly<
+function asSortedJstreamProperties<T>(
+    properties: JstreamProperties<T>
+): SortedJstreamProperties<T> {
+    if (properties.infinite) {
+        throw new NeverEndingOperationError("cannot sort infinite items");
+    }
+    return properties as SortedJstreamProperties<T>;
+}
+
+export type SortedJstreamProperties<T> = JstreamProperties<T> & {
+    readonly infinite?: false;
+} & Readonly<
         Partial<{
             /** If true: the source has already been sorted by the order provided to the {@link SortedJstream}. */
             preSorted: boolean;
@@ -2741,15 +2756,13 @@ export type SortedJstreamProperties<T> = JstreamProperties<T> &
 
 export class SortedJstream<T> extends Jstream<T> {
     /** the order to sort the items in */
-    private readonly order: readonly Order<T>[];
+    private readonly order: Order<T>;
     /** the original getSource function */
     private readonly getUnsortedSource: () => Iterable<T>;
     /** the properties of the original stream */
     private readonly unsortedProperties: SortedJstreamProperties<T>;
-    /** The comparator that is used for sorting. */
-    private readonly comparator: Comparator<T>;
 
-    public static empty<T>(order: readonly Order<T>[] = [smartComparator]) {
+    public static empty<T>(order: Order<T> = smartComparator) {
         return new SortedJstream(
             order,
             { preSorted: true, freshSource: true },
@@ -2758,7 +2771,7 @@ export class SortedJstream<T> extends Jstream<T> {
     }
 
     public constructor(
-        order: readonly Order<T>[],
+        order: Order<T>,
         properties: SortedJstreamProperties<T> = {},
         getSource: () => Iterable<T>
     ) {
@@ -2777,14 +2790,13 @@ export class SortedJstream<T> extends Jstream<T> {
                 }
             })();
 
-            arr.sort(this.comparator);
+            arr.sort(asComparator(this.order));
             return arr;
         });
 
         this.getUnsortedSource = getSource;
         this.unsortedProperties = properties;
         this.order = order;
-        this.comparator = multiCompare(order);
     }
 
     public get thenBy(): {
@@ -2796,7 +2808,7 @@ export class SortedJstream<T> extends Jstream<T> {
         const self = this;
         return function thenBy(order: Order<T>): SortedJstream<T> {
             return new SortedJstream<T>(
-                [...self.order, order],
+                multiCompare([self.order, order]),
                 self.unsortedProperties,
                 self.getUnsortedSource
             );
@@ -2812,13 +2824,29 @@ export class SortedJstream<T> extends Jstream<T> {
         const self = this;
         return function thenByDescending(order: Order<T>): SortedJstream<T> {
             return new SortedJstream<T>(
-                [...self.order, reverseOrder(order)],
+                multiCompare([self.order, reverseOrder(order)]),
                 self.unsortedProperties,
                 self.getUnsortedSource
             );
         };
     }
-    // TODO custom optimized min and max
+
+    /**
+     * @returns the number of items in the stream if this can be determined without iterating it. Returns undefined otherwise. {@link Infinity} If the {@link Jstream} is known to be infinite.
+     */
+    public get nonIteratedCountOrUndefined() {
+        return (): number | undefined => {
+            if (this.unsortedProperties.infinite) return Infinity;
+            if (!this.unsortedProperties.expensiveSource) {
+                const count = nonIteratedCountOrUndefined(
+                    this.getUnsortedSource()
+                );
+                if (undefined !== count) return count;
+            }
+
+            return super.nonIteratedCountOrUndefined();
+        };
+    }
 
     public get take() {
         const self = this;
@@ -2838,59 +2866,40 @@ export class SortedJstream<T> extends Jstream<T> {
                     if (self.unsortedProperties.preSorted) {
                         return externalTake(self.getUnsortedSource(), count);
                     } else {
-                        return min(
-                            self.getUnsortedSource(),
-                            count,
-                            self.comparator
-                        );
+                        return min(self.getUnsortedSource(), count, self.order);
                     }
                 }
             );
         };
     }
 
-    public get takeFinal() {
+    public get skip() {
         const self = this;
-        const externalTakeFinal = takeFinal;
-        return function takeFinal(count: number | bigint): SortedJstream<T> {
-            if (count === Infinity) return self;
-            if (count === 0 || count === 0n) {
-                return SortedJstream.empty(self.order);
-            }
-            requireNonNegative(count);
-            requireInteger(count);
-
+        const externalSkip = skip;
+        return function skip(count: number | bigint): SortedJstream<T> {
             return new SortedJstream(
                 self.order,
-                { preSorted: true, expensiveSource: true, freshSource: true },
+                {
+                    preSorted: true,
+                    expensiveSource: true,
+                    freshSource: true,
+                },
                 () => {
                     if (self.unsortedProperties.preSorted) {
-                        return externalTakeFinal(
-                            self.getUnsortedSource(),
-                            count
-                        );
-                    } else {
+                        return externalSkip(self.getUnsortedSource(), count);
+                    }
+                    const length = self.nonIteratedCountOrUndefined();
+                    if (undefined !== length) {
                         return max(
                             self.getUnsortedSource(),
-                            count,
-                            self.comparator
+                            length - Number(count),
+                            self.order
                         );
+                    } else {
+                        return externalSkip(self, count);
                     }
                 }
             );
         };
     }
-
-    // public get skip() {
-    //     const skip = (count: number | bigint) => {
-    //         if (typeof count === "bigint") return super.skip(count);
-    //         const nonIteratedCount = this.nonIteratedCountOrUndefined();
-    //         if (nonIteratedCount === undefined) return super.skip(count);
-
-    //         return this.takeFinal(
-    //             Math.max(0, nonIteratedCount - Number(count))
-    //         );
-    //     };
-    //     return skip;
-    // }
 }

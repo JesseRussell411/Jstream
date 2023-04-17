@@ -278,9 +278,9 @@ async function main() {
 
     for (let i = 0; i < 5; i++) {
         let start = performance.now();
-        const minItems = min(items, 100, (a, b) => a - b);
+        const minItems = min(items, 2, (a, b) => a - b);
         let stop = performance.now();
-        console.log(stop - start);
+        console.log("min:", stop - start);
     }
 
     console.log("=====");

@@ -116,7 +116,9 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
             removed => (removedNode = removed)
         );
 
-        if (undefined !== removedNode) this._size--;
+        if (undefined !== removedNode) {
+            this._size--;
+        }
 
         return removedNode?.entry;
     }

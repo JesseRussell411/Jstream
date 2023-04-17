@@ -15,7 +15,6 @@ export default class StableSortedList<T> implements Iterable<T> {
         keepLeast: boolean = true
     ) {
         this.sortedTree = new AVLTree(comparator);
-
         this.maxLength = maxLength;
         this.keepLeast = keepLeast;
     }
@@ -27,8 +26,6 @@ export default class StableSortedList<T> implements Iterable<T> {
     }
 
     public add(item: T): void {
-        if (this.maxLength <= 0) return;
-
         const isFull = this.length >= this.maxLength;
 
         // add item
@@ -44,7 +41,7 @@ export default class StableSortedList<T> implements Iterable<T> {
             if (this.keepLeast) {
                 const greatest = this.sortedTree.getGreatest()!;
                 const greatestGroup = greatest[1];
-                if (greatestGroup.length === 1) {
+                if (greatestGroup.size === 1) {
                     this.sortedTree.remove(greatest[0]);
                 } else {
                     greatestGroup.pop();
@@ -53,7 +50,7 @@ export default class StableSortedList<T> implements Iterable<T> {
                 const least = this.sortedTree.getLeast()!;
                 const leastGroup = least[1];
 
-                if (leastGroup.length === 1) {
+                if (leastGroup.size === 1) {
                     this.sortedTree.remove(least[0]);
                 } else {
                     leastGroup.shift();

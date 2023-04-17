@@ -1,6 +1,6 @@
 export default class DoubleLinkedList<T> implements Iterable<T> {
     private _tail?: _Node<T> = undefined;
-    private size: number = 0;
+    private _size: number = 0;
 
     public static from<T>(values: Iterable<T>) {
         const list = new DoubleLinkedList<T>();
@@ -14,8 +14,8 @@ export default class DoubleLinkedList<T> implements Iterable<T> {
         return DoubleLinkedList.from(values);
     }
 
-    public get length() {
-        return this.size;
+    public get size() {
+        return this._size;
     }
 
     /** The first item in the list. */
@@ -78,7 +78,7 @@ export default class DoubleLinkedList<T> implements Iterable<T> {
             // replace old tail with new tail
             this._tail = newTail;
         }
-        this.size++;
+        this._size++;
     }
 
     public unShift(value: T): void {
@@ -98,7 +98,7 @@ export default class DoubleLinkedList<T> implements Iterable<T> {
             // replace old head with new head
             this._tail.next = newHead;
         }
-        this.size++;
+        this._size++;
     }
 
     /**
@@ -119,7 +119,7 @@ export default class DoubleLinkedList<T> implements Iterable<T> {
             // link tail to new head
             this._tail.next = head.next;
         }
-        this.size--;
+        this._size--;
         return result;
     }
 
@@ -144,7 +144,7 @@ export default class DoubleLinkedList<T> implements Iterable<T> {
 
             this._tail = newTail;
         }
-        this.size--;
+        this._size--;
         return result;
     }
 }
