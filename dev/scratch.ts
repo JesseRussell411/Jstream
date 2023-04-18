@@ -260,6 +260,60 @@ async function main() {
     // arr.sort((a, b) => a.charAt(0).localeCompare(b.charAt(0)));
     // console.log(arr);
 
+    const strs = [
+        "20",
+        "81",
+        "72",
+        "93",
+        "84",
+        "65",
+        "76",
+        "47",
+        "78",
+        "49",
+        "710",
+        "311",
+        "112",
+        "613",
+        "514",
+        "115",
+        "616",
+        "217",
+        "118",
+        "419",
+    ];
+
+    // const strs = Jstream.from([
+    //     "1",
+    //     "1",
+    //     "1",
+    //     "2",
+    //     "2",
+    //     "3",
+    //     "4",
+    //     "4",
+    //     "4",
+    //     "5",
+    //     "6",
+    //     "6",
+    //     "6",
+    //     "7",
+    //     "7",
+    //     "7",
+    //     "7",
+    //     "8",
+    //     "9",
+    //     "8",
+    // ])
+    //     .shuffle()
+    //     .map((s, i) => s + i)
+    //     .collapse();
+
+    console.log([...strs]);
+    console.log([
+        ...min(strs, 4, (a, b) => a.charAt(0).localeCompare(b.charAt(0))),
+    ]);
+
     for (let i = 0; i < 5; i++) {
         let start = performance.now();
         for (let j = 0; j < 10000; j++) {
@@ -276,9 +330,9 @@ async function main() {
         1_000_000
     ).toArray();
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
         let start = performance.now();
-        const minItems = min(items, 2, (a, b) => a - b);
+        const minItems = min(items, 1000, (a, b) => a - b);
         let stop = performance.now();
         console.log("min:", stop - start);
     }

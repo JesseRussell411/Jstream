@@ -1,63 +1,70 @@
 import { Comparator } from "../../types/sorting";
 import AVLTree from "./AVLTree";
-import DoubleLinkedList from "./DoubleLinkedList";
-type Group<T> = DoubleLinkedList<T>;
-
 export default class StableSortedList<T> implements Iterable<T> {
-    private readonly sortedTree: AVLTree<T, Group<T>>;
+    private readonly sortedTree: AVLTree<{ item: T; index: bigint }, undefined>;
     private readonly maxLength: number;
-    private length: number = 0;
     private readonly keepLeast: boolean;
+    private readonly comparator: (a: T, b: T) => number;
+    private index: bigint = 0n;
+
+    public get size() {
+        return this.sortedTree.size;
+    }
 
     public constructor(
         comparator: Comparator<T>,
         maxLength: number = Infinity,
         keepLeast: boolean = true
     ) {
-        this.sortedTree = new AVLTree(comparator);
+        this.sortedTree = new AVLTree((a, b) => {
+            const cmp = comparator(a.item, b.item);
+            if (cmp !== 0) return cmp;
+            else return Number(a.index - b.index);
+        });
         this.maxLength = maxLength;
         this.keepLeast = keepLeast;
+        this.comparator = comparator;
     }
 
     public *[Symbol.iterator](): Iterator<T> {
-        for (const group of this.sortedTree) {
-            yield* group[1];
+        for (const entry of this.sortedTree) {
+            yield entry[0].item;
         }
     }
 
     public add(item: T): void {
-        const isFull = this.length >= this.maxLength;
+        if (this.maxLength <= 0) return;
+        const isFull = this.sortedTree.size >= this.maxLength;
+
+        // cache greatest or least entries since they'll be needed twice
+        const greatest =
+            isFull && this.keepLeast
+                ? this.sortedTree.getGreatest()
+                : undefined;
+        const least =
+            isFull && !this.keepLeast
+                ? this.sortedTree.getLeast() /** spacing for prettier */
+                : undefined;
+
+        // skip item if it would get removed anyway
+        if (isFull) {
+            if (this.keepLeast) {
+                if (this.comparator(item, greatest![0].item) >= 0) return;
+            } else {
+                if (this.comparator(item, least![0].item) <= 0) return;
+            }
+        }
 
         // add item
-        const group = this.sortedTree.getValue(item);
-        if (group === undefined) {
-            this.sortedTree.put(item, DoubleLinkedList.of(item));
-        } else {
-            group.push(item);
-        }
+        this.sortedTree.put({ item, index: this.index++ }, undefined);
 
         // remove an item if full
         if (isFull) {
             if (this.keepLeast) {
-                const greatest = this.sortedTree.getGreatest()!;
-                const greatestGroup = greatest[1];
-                if (greatestGroup.size === 1) {
-                    this.sortedTree.remove(greatest[0]);
-                } else {
-                    greatestGroup.pop();
-                }
+                this.sortedTree.remove(greatest![0]);
             } else {
-                const least = this.sortedTree.getLeast()!;
-                const leastGroup = least[1];
-
-                if (leastGroup.size === 1) {
-                    this.sortedTree.remove(least[0]);
-                } else {
-                    leastGroup.shift();
-                }
+                this.sortedTree.remove(least![0]);
             }
-        } else {
-            this.length++;
         }
     }
 }

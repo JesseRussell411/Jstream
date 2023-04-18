@@ -16,7 +16,6 @@ import {
 } from "../types/collections";
 import { Order } from "../types/sorting";
 import { asyncForEach, getIterator } from "./async";
-import AVLTree from "./dataStructures/AVLTree";
 import DoubleLinkedList from "./dataStructures/DoubleLinkedList";
 import StableSortedList from "./dataStructures/StableSortedList";
 import {
@@ -315,6 +314,7 @@ export function min<T>(
     order: Order<T> = smartComparator
 ): Iterable<T> {
     requireGreaterThanZero(requireSafeInteger(count));
+    if (count === 0 || count === 0n) return [];
     const comparator = asComparator(order);
     if (count === 1 || count === 1n) {
         const iterator = items[Symbol.iterator]();
@@ -331,10 +331,8 @@ export function min<T>(
     }
 
     const result = new StableSortedList(comparator, Number(count));
-    let i = 0n;
     for (const item of items) {
         result.add(item);
-        i++;
     }
     return result;
 }

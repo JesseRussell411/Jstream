@@ -13,6 +13,14 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
         return this._size;
     }
 
+    public get isEmpty() {
+        return this.size <= 0;
+    }
+
+    public get nonEmpty() {
+        return !this.isEmpty;
+    }
+
     public constructor(comparator: (a: K, b: K) => number) {
         this.comparator = comparator;
     }
@@ -53,26 +61,28 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
             return true;
         } else {
             // if root is not null, insert into root
-            const result = this.root.locateOrInsert(
-                this.comparator,
-                key,
-                value
-            );
-
-            // if the key was not already in the tree, increment size
-            if (result.inserted) {
-                this._size++;
-                return true;
-            } else {
-                // if the key was already in the tree, use overwrite callback to decide what to do
-                result.location.value = overwrite(
-                    result.location.value,
-                    result.location.key,
+            let inserted = false;
+            this.root = this.root
+                .locateOrInsert(
+                    this.comparator,
+                    key,
                     value,
-                    key
-                );
-                return false;
-            }
+                    location => {
+                        location.value = overwrite(
+                            location.value,
+                            location.key,
+                            value,
+                            key
+                        );
+                    },
+                    () => {
+                        inserted = true;
+                        this._size++;
+                    }
+                )
+                ?.balance();
+
+            return inserted;
         }
     }
 
@@ -115,6 +125,7 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
             key,
             removed => (removedNode = removed)
         );
+        this.root = this.root?.balance();
 
         if (undefined !== removedNode) {
             this._size--;
@@ -142,6 +153,12 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
         }
     }
 
+    public removeGreatest(): void {
+        if (undefined === this.root) return;
+        this.root = this.root.removeGreatest();
+        this._size--;
+    }
+
     private locateOrInsert(
         key: K,
         newValue: V | (() => V)
@@ -152,9 +169,23 @@ export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {
             return { inserted: true, location: this.root };
         }
 
-        const result = this.root.locateOrInsert(this.comparator, key, newValue);
-        if (result.inserted) this._size++;
-        return result;
+        let inserted = false;
+        let location: Node<K, V> | undefined;
+        this.root = this.root.locateOrInsert(
+            this.comparator,
+            key,
+            newValue,
+            node => {
+                location = node;
+            },
+            node => {
+                this._size++;
+                location = node;
+                inserted = false;
+            }
+        );
+
+        return { inserted, location: location! };
     }
 }
 
@@ -311,24 +342,24 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
         return result;
     }
 
-    public balance(): this {
+    public balance(): Node<K, V> {
         if (this.balanceFactor < -1) {
             if (undefined !== this.left && this.left.balanceFactor > 0) {
                 // left right case
-                this.left.rotateLeft();
-                this.rotateRight();
+                this.left = this.left.rotateLeft();
+                return this.rotateRight();
             } else {
                 // left left case:
-                this.rotateRight();
+                return this.rotateRight();
             }
         } else if (this.balanceFactor > 1) {
             if (undefined !== this.right && this.right.balanceFactor < 0) {
                 // right left case:
-                this.right.rotateRight();
-                this.rotateLeft();
+                this.right = this.right.rotateRight();
+                return this.rotateLeft();
             } else {
                 // right right case:
-                this.rotateLeft();
+                return this.rotateLeft();
             }
         }
 
@@ -366,37 +397,53 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
     public locateOrInsert(
         comparator: (a: K, b: K) => number,
         key: K,
-        newValue: V | (() => V)
-    ): Readonly<{ inserted: boolean; location: Node<K, V> }> {
+        newValue: V | (() => V),
+        onLocate: (location: Node<K, V>) => void = () => {},
+        onInsert: (location: Node<K, V>) => void = () => {}
+    ): Node<K, V> | undefined {
         const cmp = comparator(key, this.key);
         if (cmp < 0) {
             if (undefined === this.left) {
                 this.left = new Node(key, resultOf(newValue));
-                return { inserted: true, location: this.left };
+                onInsert(this.left);
+                return this;
             } else {
-                const result = this.left.locateOrInsert(
+                this.left = this.left.locateOrInsert(
                     comparator,
                     key,
-                    newValue
+                    newValue,
+                    onLocate,
+                    onInsert
                 );
-                if (result.inserted) this.balance();
-                return result;
+                return this.balance();
             }
         } else if (cmp > 0) {
             if (undefined === this.right) {
                 this.right = new Node(key, resultOf(newValue));
-                return { inserted: true, location: this.right };
+                onInsert(this.right);
+                return this;
             } else {
-                const result = this.right.locateOrInsert(
+                this.right = this.right.locateOrInsert(
                     comparator,
                     key,
-                    newValue
+                    newValue,
+                    onLocate,
+                    onInsert
                 );
-                if (result.inserted) this.balance();
-                return result;
+                return this.balance();
             }
         } else {
-            return { inserted: false, location: this };
+            onLocate(this);
+            return this;
+        }
+    }
+
+    public removeGreatest(): Node<K, V> | undefined {
+        if (undefined !== this.right) {
+            this.right = this.right.removeGreatest();
+            return this.balance();
+        } else {
+            return this.left;
         }
     }
 
@@ -412,13 +459,11 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
         if (cmp < 0) {
             if (undefined === this.left) return this;
             this.left = this.left.remove(comparator, key, getRemovedNode);
-            this.balance();
-            return this;
+            return this.balance();
         } else if (cmp > 0) {
             if (undefined === this.right) return this;
             this.right = this.right.remove(comparator, key, getRemovedNode);
-            this.balance();
-            return this;
+            return this.balance();
         } else {
             getRemovedNode(this);
             if (undefined === this.left) {
@@ -438,8 +483,7 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
                 successor._left = this.left;
                 successor._right = this.right.remove(comparator, successor.key);
                 successor.update();
-                successor.balance();
-                return successor;
+                return successor.balance();
             }
         }
     }
