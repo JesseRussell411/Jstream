@@ -116,6 +116,16 @@ export type Comparison =
 // TODO? move infinity checks into iteration instead of method body
 // TODO keep track of tuple type
 // TODO implement sorted set and circular buffer so we can go back to 0 dependencies
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
+// TODO unit tests
 
 // DESIGN NOTE: every public facing, non-static method in this class is actually an
 // accessor that returns a function bound to "this".
