@@ -330,7 +330,7 @@ async function main() {
         1_000_000
     ).toArray();
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
         let start = performance.now();
         const minItems = min(items, 1000, (a, b) => a - b);
         let stop = performance.now();
@@ -339,13 +339,23 @@ async function main() {
 
     console.log("=====");
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 2; i++) {
         let start = performance.now();
         const minItems = [...items];
         minItems.sort((a, b) => a - b);
         minItems.length = 1000;
         let stop = performance.now();
         console.log(stop - start);
+    }
+    {
+        const strscopy = [...strs];
+        const arrrr = new Jstream({ freshSource: true }, () => strscopy)
+            .copyWithin(3, 5, 10)
+            .take(5)
+            .asArray();
+        //@ts-ignore
+        console.log(arrrr === strscopy);
+        console.log(strscopy);
     }
 }
 

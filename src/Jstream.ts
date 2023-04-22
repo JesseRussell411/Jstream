@@ -72,7 +72,6 @@ export type JstreamProperties<_> = Readonly<
     }>
 >;
 
-// TODO tuple support
 export type JstreamToArrayRecursive<T> = T extends Jstream<infer SubT>
     ? JstreamToArrayRecursive<SubT>[]
     : T extends readonly []
@@ -115,7 +114,6 @@ export type Comparison =
 // TODO field-comparison-value for find and findFinal, just need type definitions, then use .filter(field, comparison, value).ifEmpty(() => [resultOf(alternative)]).first/final()
 // TODO? move infinity checks into iteration instead of method body
 // TODO keep track of tuple type
-// TODO implement sorted set and circular buffer so we can go back to 0 dependencies
 // TODO unit tests
 // TODO unit tests
 // TODO unit tests
@@ -135,22 +133,26 @@ export type Comparison =
 // made the class instance huge and growing as new features are added, which would increase memory
 // usage and instantiation time (not by much, admittedly).
 
-// Additionally, named functions are returned instead of antonymous arrow functions. It would
+// Additionally, named functions are returned instead of anonymous arrow functions. It would
 // have been simpler to return arrow function as they would automatically bind on "this", so
 // it wouldn't be necessary to declare a "self" variable outside of the function, but using named
 // functions makes the call stack in the event of an error more descriptive while only requiring
-// the addition of "const self = this;".
+// the addition of "const self = this;". There's also the fact that arrow functions can't be generator
+// functions so the use of generator functions (which is common in this codebase) requires self anyway.
 
 // TODO? arrow functions can be named too if they are assigned to a variable first.
 // Consider changing to named arrow functions if a reason to do so comes up.
 
 export default class Jstream<T> implements Iterable<T> {
     // =================
-    //   static fields
+    //   private static
     // =================
-    private static emptyJstream: Jstream<any> = new Jstream({}, emptyIterable);
+    private static readonly emptyJstream: Jstream<any> = new Jstream(
+        {},
+        emptyIterable
+    );
     // =============
-    //   private
+    //   protected
     // =============
     protected readonly getSource: () => Iterable<T>;
     protected readonly properties: JstreamProperties<T>;
@@ -459,14 +461,24 @@ export default class Jstream<T> implements Iterable<T> {
         } as any;
     }
 
-    // TODO index by other things
+    public get indexBy() {
+        const self = this;
+        return function indexBy<K>(
+            keySelector: (item: T, index: number) => K
+        ): Jstream<readonly [index: K, item: T]> {
+            return self.map(
+                (item, index) => [keySelector(item, index), item] as const
+            );
+        };
+    }
+
     /**
      * Maps each item in the stream to a tuple containing the item's index and then the item in that order.
      */
     public get indexed() {
         const self = this;
-        return function indexed(): Jstream<[number, T]> {
-            return self.map((item, index) => [index, item]);
+        return function indexed(): Jstream<readonly [index: number, item: T]> {
+            return self.indexBy((_item, index) => index);
         };
     }
 
@@ -700,9 +712,14 @@ export default class Jstream<T> implements Iterable<T> {
         (comparator: Comparator<T>): SortedJstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order. */
         (keySelector: (item: T) => any): SortedJstream<T>;
+        /** Sorts the stream by the given field. */
+        <Field extends keyof T>(field: Field): SortedJstream<T>;
     } {
         const self = this;
-        return function sortBy(order: Order<T>): SortedJstream<T> {
+        return function sortBy(order: Order<T> | keyof T): SortedJstream<T> {
+            if (!(order instanceof Function)) {
+                return self.sortBy(item => item[order]);
+            }
             return new SortedJstream(
                 order,
                 asSortedJstreamProperties(self.properties),
@@ -716,9 +733,16 @@ export default class Jstream<T> implements Iterable<T> {
         (comparator: Comparator<T>): SortedJstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order. */
         (keySelector: (item: T) => any): SortedJstream<T>;
+        /** Sorts the stream by the given field in descending order. */
+        <Field extends keyof T>(field: Field): SortedJstream<T>;
     } {
         const self = this;
-        return function sortByDescending(order: Order<T>): SortedJstream<T> {
+        return function sortByDescending(
+            order: Order<T> | keyof T
+        ): SortedJstream<T> {
+            if (!(order instanceof Function)) {
+                return self.sortByDescending(item => item[order]);
+            }
             return self.sortBy(reverseOrder(order));
         };
     }
@@ -2825,7 +2849,7 @@ export class SortedJstream<T> extends Jstream<T> {
         }
         super({ expensiveSource: true, freshSource: true }, () => {
             const source = getSource();
-            if (this.unsortedProperties.preSorted) return source;
+            if (properties.preSorted) return source;
 
             let arr: T[] = (() => {
                 if (properties.freshSource && isArray(source)) {
