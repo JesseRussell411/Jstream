@@ -622,7 +622,27 @@ export default class Jstream<T> implements Iterable<T> {
     public get append() {
         const self = this;
         return function append<O>(item: O): Jstream<T | O> {
-            return self.concat([item]);
+            return new Jstream(
+                {
+                    freshSource: self.properties.freshSource,
+                    expensiveSource: self.properties.expensiveSource,
+                    infinite: self.properties.infinite,
+                },
+                () => {
+                    const source = self.getSource();
+                    if (self.properties.freshSource && Array.isArray(source)) {
+                        source.push(item);
+                        return source;
+                    }
+
+                    return {
+                        *[Symbol.iterator]() {
+                            yield* source;
+                            yield item;
+                        },
+                    };
+                }
+            );
         };
     }
 
@@ -862,23 +882,16 @@ export default class Jstream<T> implements Iterable<T> {
             return new Jstream(
                 { infinite: self.properties.infinite },
                 function* () {
-                    const source = self.getSource();
-                    if (isArray(source)) {
-                        for (let i = Number(count); i < source.length; i++) {
-                            yield source[i] as T;
-                        }
-                    } else {
-                        const iterator = source[Symbol.iterator]();
+                    const iterator = self[Symbol.iterator]();
 
-                        for (let i = 0n; i < count; i++) {
-                            if (iterator.next().done) return;
-                        }
+                    for (let i = 0n; i < count; i++) {
+                        if (iterator.next().done) return;
+                    }
 
-                        let next: IteratorResult<T>;
+                    let next: IteratorResult<T>;
 
-                        while (!(next = iterator.next()).done) {
-                            yield next.value;
-                        }
+                    while (!(next = iterator.next()).done) {
+                        yield next.value;
                     }
                 }
             );
@@ -956,46 +969,48 @@ export default class Jstream<T> implements Iterable<T> {
 
     /** Skips the given number of items at the end of the stream. */
     public get skipFinal() {
-        return (count: number | bigint): Jstream<T> => {
-            if (count === 0 || count === 0n) return this;
+        const self = this;
+        return function skipFinal(count: number | bigint): Jstream<T> {
+            if (count === 0 || count === 0n) return self;
             if (count === Infinity) return Jstream.empty();
 
+            self.requireThisNotInfinite();
             requireNonNegative(requireSafeInteger(count));
-            if (this.properties.infinite) {
-                throw new NeverEndingOperationError();
-            }
 
             if (typeof count === "bigint") {
-                return this.skipFinal(Number(count));
+                return self.skipFinal(Number(count));
             }
-
-            const newGetSource = () => {
-                const source = this;
-                if (isArray(source)) {
-                    if (this.properties.freshSource) {
-                        source.length -= Math.min(count, source.length);
-                        return source;
-                    } else {
-                        return iterableFromIteratorGetter(function* () {
-                            for (let i = 0; i < source.length - count; i++) {
-                                yield source[i] as T;
-                            }
-                        });
-                    }
-                } else {
-                    // TODO optimize and allow infinite iterables by using a cache
-                    const array = toArray(source);
-                    array.length -= Math.min(count, array.length);
-                    return array;
-                }
-            };
 
             return new Jstream(
                 {
-                    expensiveSource: true,
-                    freshSource: true,
+                    freshSource: self.properties.freshSource,
+                    expensiveSource: self.properties.expensiveSource,
+                    infinite: self.properties.infinite,
                 },
-                newGetSource
+                () => {
+                    const source = self;
+                    if (isArray(source)) {
+                        if (self.properties.freshSource) {
+                            source.length -= Math.min(count, source.length);
+                            return source;
+                        } else {
+                            return iterableFromIteratorGetter(function* () {
+                                for (
+                                    let i = 0;
+                                    i < source.length - count;
+                                    i++
+                                ) {
+                                    yield source[i] as T;
+                                }
+                            });
+                        }
+                    } else {
+                        // TODO optimize and allow infinite iterables by using a cache
+                        const array = toArray(source);
+                        array.length -= Math.min(count, array.length);
+                        return array;
+                    }
+                }
             );
         };
     }
@@ -1051,15 +1066,35 @@ export default class Jstream<T> implements Iterable<T> {
             requireInteger(count);
 
             return new Jstream(
-                { infinite: self.properties.infinite && count === Infinity },
-                function* () {
-                    const iterator = self[Symbol.iterator]();
+                {
+                    infinite: self.properties.infinite && count === Infinity,
+                    freshSource: self.properties.freshSource,
+                    expensiveSource: self.properties.expensiveSource,
+                },
+                () => {
+                    const source = self.getSource();
 
-                    for (let i = 0n; i < count; i++) {
-                        const next = iterator.next();
-                        if (next.done) return;
-                        yield next.value;
+                    if (self.properties.freshSource && Array.isArray(source)) {
+                        requireSafeInteger(count);
+                        source.length = Math.min(source.length, Number(count));
+                        return source;
                     }
+
+                    return {
+                        *[Symbol.iterator]() {
+                            const iterator = source[Symbol.iterator]();
+
+                            for (
+                                let i = typeof count === "bigint" ? 0n : 0;
+                                i < count;
+                                i++
+                            ) {
+                                const next = iterator.next();
+                                if (next.done) return;
+                                yield next.value;
+                            }
+                        },
+                    };
                 }
             );
         };
