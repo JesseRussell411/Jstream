@@ -17,9 +17,32 @@ use(inspect);
 function use(..._things: any): void {}
 
 async function main() {
-    // const customerData = await getCustomers();
-    // const products = await getProducts();
-    // const purchases = await getPurchases();
+    const customerData = await getCustomers();
+    const products = await getProducts();
+    const purchaseData = await getPurchases();
+
+    const purchases = purchaseData
+        .leftJoin(
+            products,
+            purchase => purchase.productID,
+            product => product.id,
+            (purchase, product) => ({
+                ...product,
+                ...pick(purchase, ["customerID"]),
+            })
+        )
+        .collapse();
+
+    const customers = customerData.groupJoin(
+        purchases,
+        customer => customer.id,
+        purchase => purchase.customerID,
+        (customer, purchases) => ({ ...customer, purchases })
+    ).collapse();
+
+
+    customers.filter("state", "is", "DE").applyTo(DEC => console.log([...DEC.asArray()]));
+
     // use(customerData, products, purchases);
     // console.log(
     //     Jstream.from([1, 2, 3, 4] as const).fold(
@@ -308,54 +331,55 @@ async function main() {
     //     .shuffle()
     //     .map((s, i) => s + i)
     //     .collapse();
-
-    console.log([...strs]);
-    console.log([
-        ...min(strs, 4, (a, b) => a.charAt(0).localeCompare(b.charAt(0))),
-    ]);
-
-    for (let i = 0; i < 5; i++) {
-        let start = performance.now();
-        for (let j = 0; j < 10000; j++) {
-            const sqrt = Math.sqrt(Number.MAX_SAFE_INTEGER);
-        }
-        let stop = performance.now();
-
-        console.log(stop - start);
-    }
-    console.log("=============");
-
-    const items = Jstream.generate(
-        () => Math.trunc(Math.random() * 10_000_000_000),
-        1_000_000
-    ).toArray();
-
-    for (let i = 0; i < 2; i++) {
-        let start = performance.now();
-        const minItems = min(items, 1000, (a, b) => a - b);
-        let stop = performance.now();
-        console.log("min:", stop - start);
-    }
-
-    console.log("=====");
-
-    for (let i = 0; i < 2; i++) {
-        let start = performance.now();
-        const minItems = [...items];
-        minItems.sort((a, b) => a - b);
-        minItems.length = 1000;
-        let stop = performance.now();
-        console.log(stop - start);
-    }
     {
-        const strscopy = [...strs];
-        const arrrr = new Jstream({ freshSource: true }, () => strscopy)
-            .copyWithin(3, 5, 10)
-            .take(5)
-            .asArray();
-        //@ts-ignore
-        console.log(arrrr === strscopy);
-        console.log(strscopy);
+        console.log([...strs]);
+        console.log([
+            ...min(strs, 4, (a, b) => a.charAt(0).localeCompare(b.charAt(0))),
+        ]);
+
+        for (let i = 0; i < 5; i++) {
+            let start = performance.now();
+            for (let j = 0; j < 10000; j++) {
+                const sqrt = Math.sqrt(Number.MAX_SAFE_INTEGER);
+            }
+            let stop = performance.now();
+
+            console.log(stop - start);
+        }
+        console.log("=============");
+
+        const items = Jstream.generate(
+            () => Math.trunc(Math.random() * 10_000_000_000),
+            1_000_000
+        ).toArray();
+
+        for (let i = 0; i < 2; i++) {
+            let start = performance.now();
+            const minItems = min(items, 1000, (a, b) => a - b);
+            let stop = performance.now();
+            console.log("min:", stop - start);
+        }
+
+        console.log("=====");
+
+        for (let i = 0; i < 2; i++) {
+            let start = performance.now();
+            const minItems = [...items];
+            minItems.sort((a, b) => a - b);
+            minItems.length = 1000;
+            let stop = performance.now();
+            console.log(stop - start);
+        }
+        {
+            const strscopy = [...strs];
+            const arrrr = new Jstream({ freshSource: true }, () => strscopy)
+                .copyWithin(3, 5, 10)
+                .take(5)
+                .asArray();
+            //@ts-ignore
+            console.log(arrrr === strscopy);
+            console.log(strscopy);
+        }
     }
 }
 

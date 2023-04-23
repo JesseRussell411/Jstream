@@ -167,6 +167,16 @@ export default class Jstream<T> implements Iterable<T> {
         }
     }
 
+    /**
+     * Ensures that the {@link Iterable} is not known to be infinite. {@link https://en.wikipedia.org/wiki/Halting_problem Does not ensure that it is finite}.
+     * @throws If the {@link Iterable} is known to be infinite.
+     */
+    protected requireOtherNotInfinite(other: Iterable<any>, message?: string) {
+        if (other instanceof Jstream && other.properties.infinite) {
+            throw new NeverEndingOperationError(message);
+        }
+    }
+
     // ========
     //  public
     // ========
@@ -2149,7 +2159,7 @@ export default class Jstream<T> implements Iterable<T> {
             return item instanceof Jstream || Array.isArray(item);
         }
 
-        function recursive(items: Iterable<any>): any {
+        function recursive(items: Iterable<any>): readonly any[] {
             if (items instanceof Jstream) {
                 const source = items.getSource();
                 if (Array.isArray(source) && items.properties.freshSource) {
@@ -2177,10 +2187,10 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             }
 
-            if (resultWasModified) {
-                return result;
-            } else {
+            if (!resultWasModified && Array.isArray(items)) {
                 return items;
+            } else {
+                return result;
             }
         }
     }
@@ -2579,17 +2589,16 @@ export default class Jstream<T> implements Iterable<T> {
     // TODO documentation
 
     public get join(): {
-        <O, R>(
-            other: Iterable<O>,
-            resultSelector: (item: T, otherItem: O) => R,
-            comparison: (item: T, otherItem: O) => boolean
-        ): Jstream<R>;
-
         <O, K, R>(
             other: Iterable<O>,
             keySelector: (item: T, index: number) => K,
             otherKeySelector: (item: O, index: number) => K,
             resultSelector: (item: T, otherItem: O) => R
+        ): Jstream<R>;
+        <O, R>(
+            other: Iterable<O>,
+            resultSelector: (item: T, otherItem: O) => R,
+            comparison: (item: T, otherItem: O) => boolean
         ): Jstream<R>;
     } {
         const self = this;
@@ -2603,6 +2612,8 @@ export default class Jstream<T> implements Iterable<T> {
                 | ((item: T, otherItem: O) => boolean),
             resultSelector?: (item: T, otherItem: O) => R
         ): Jstream<R> {
+            self.requireOtherNotInfinite(other);
+
             if (resultSelector !== undefined) {
                 const keySelector = keySelectorOrResultSelector as (
                     item: T,
@@ -2655,17 +2666,16 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get leftJoin(): {
-        <I, R>(
-            inner: Iterable<I>,
-            resultSelector: (item: T, innerItem: I | undefined) => R,
-            comparison: (item: T, innerItem: I) => boolean
-        ): Jstream<R>;
-
         <I, K, R>(
             inner: Iterable<I>,
             keySelector: (item: T, index: number) => K,
             innerKeySelector: (item: I, index: number) => K,
             resultSelector: (item: T, innerItem: I | undefined) => R
+        ): Jstream<R>;
+        <I, R>(
+            inner: Iterable<I>,
+            resultSelector: (item: T, innerItem: I | undefined) => R,
+            comparison: (item: T, innerItem: I) => boolean
         ): Jstream<R>;
     } {
         const self = this;
@@ -2679,6 +2689,8 @@ export default class Jstream<T> implements Iterable<T> {
                 | ((item: T, innerItem: I) => boolean),
             resultSelector?: (item: T, innerItem: I | undefined) => R
         ): Jstream<R> {
+            self.requireOtherNotInfinite(inner);
+
             if (resultSelector !== undefined) {
                 const keySelector = keySelectorOrResultSelector as (
                     item: T,
@@ -2736,12 +2748,12 @@ export default class Jstream<T> implements Iterable<T> {
             inner: Iterable<I>,
             keySelector: (item: T, index: number) => K,
             innerKeySelector: (item: I, index: number) => K,
-            resultSelector: (item: T, innerItem: I[]) => R
+            resultSelector: (item: T, innerItems: Jstream<I>) => R
         ): Jstream<R>;
 
         <I, R>(
             inner: Iterable<I>,
-            resultSelector: (item: T, innerItem: I[]) => R,
+            resultSelector: (item: T, innerItems: Jstream<I>) => R,
             comparison: (item: T, innerItem: I) => boolean
         ): Jstream<R>;
     } {
@@ -2750,12 +2762,14 @@ export default class Jstream<T> implements Iterable<T> {
             inner: Iterable<I>,
             keySelectorOrResultSelector:
                 | ((item: T, index: number) => K)
-                | ((item: T, innerItem: I[]) => R),
+                | ((item: T, innerItem: Jstream<I>) => R),
             innerKeySelectorOrComparison:
                 | ((item: I, index: number) => K)
                 | ((item: T, innerItem: I) => boolean),
-            resultSelector?: (item: T, innerItem: I[]) => R
+            resultSelector?: (item: T, innerItem: Jstream<I>) => R
         ): Jstream<R> {
+            self.requireOtherNotInfinite(inner);
+
             if (resultSelector !== undefined) {
                 const keySelector = keySelectorOrResultSelector as (
                     item: T,
@@ -2773,14 +2787,14 @@ export default class Jstream<T> implements Iterable<T> {
                     for (const item of self) {
                         const key = keySelector(item, i);
                         const innerGroup = innerGrouped.get(key) ?? [];
-                        yield resultSelector(item, innerGroup);
+                        yield resultSelector(item, Jstream.from(innerGroup));
                         i++;
                     }
                 });
             } else {
                 const resultSelector = keySelectorOrResultSelector as (
                     item: T,
-                    innerItem: I[]
+                    innerItem: Jstream<I>
                 ) => R;
                 const comparison = innerKeySelectorOrComparison as (
                     item: T,
@@ -2797,7 +2811,7 @@ export default class Jstream<T> implements Iterable<T> {
                                 innerGroup.push(innerItem);
                             }
                         }
-                        yield resultSelector(item, innerGroup);
+                        yield resultSelector(item, Jstream.from(innerGroup));
                     }
                 });
             }

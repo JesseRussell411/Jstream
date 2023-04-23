@@ -212,7 +212,7 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
     _left: Node<K, V> | undefined;
     //@ts-ignore
     _right: Node<K, V> | undefined;
-    _balanceFactor: number;
+
     _depth: number;
 
     public get value() {
@@ -245,8 +245,8 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
         this.update();
     }
 
-    public get balanceFactor() {
-        return this._balanceFactor;
+    public get balanceFactor() :number{
+        return calcBalanceFactor(this.left, this.right);
     }
 
     public get depth() {
@@ -260,10 +260,9 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
         right: Node<K, V> | undefined = undefined
     ) {
         if (undefined !== key) this.key = key;
-        if (undefined !== value) this.value = value;
+        if (undefined !== value) this._value = value;
         if (undefined !== left) this._left = left;
         if (undefined !== right) this._right = right;
-        this._balanceFactor = calcBalanceFactor(left, right);
         this._depth = calcDepth(left, right);
     }
 
@@ -298,7 +297,6 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
     }
 
     public update(): void {
-        this._balanceFactor = calcBalanceFactor(this._left, this._right);
         this._depth = calcDepth(this._left, this._right);
     }
 
@@ -343,7 +341,8 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
     }
 
     public balance(): Node<K, V> {
-        if (this.balanceFactor < -1) {
+        const balanceFactor = this.balanceFactor;
+        if (balanceFactor < -1) {
             if (undefined !== this.left && this.left.balanceFactor > 0) {
                 // left right case
                 this.left = this.left.rotateLeft();
@@ -352,7 +351,7 @@ class Node<K, V = undefined> implements Iterable<Node<K, V>> {
                 // left left case:
                 return this.rotateRight();
             }
-        } else if (this.balanceFactor > 1) {
+        } else if (balanceFactor > 1) {
             if (undefined !== this.right && this.right.balanceFactor < 0) {
                 // right left case:
                 this.right = this.right.rotateRight();
