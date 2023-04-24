@@ -43,10 +43,15 @@ async function main() {
 
     customers.filter("state", "is", "DE").applyTo(DEC => console.log([...DEC.asArray()]));
 
+
+
+    customers.map(c => ({...c, purchases: c.purchases.asArray()}))
+
+    customers.take(20).sortBy("city").thenBy("last_name").thenBy("first_name").thenBy("id").includes({id: 7}, c => c.id);
+
     // use(customerData, products, purchases);
     // console.log(
     //     Jstream.from([1, 2, 3, 4] as const).fold(
-    //         9,
     //         (a, b) => a + b,
     //         (r, c) => r / c
     //     )

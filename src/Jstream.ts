@@ -1818,6 +1818,28 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
+     * @returns Whether the given item is in the Jstream.
+     */
+    public get includes() {
+        const self = this;
+        return function includes<O>(item: O, identity?: (item: T | O) => any) {
+            if (identity == undefined) {
+                const source = self.getSource();
+                if (source instanceof Set) return source.has(item);
+                if (Array.isArray(source)) return source.includes(item);
+                for (const _item of source) {
+                    if (Object.is(item, _item)) return true;
+                }
+            } else {
+                for (const _item of self) {
+                    if (Object.is(identity(item), identity(_item))) return true;
+                }
+            }
+            return false;
+        };
+    }
+
+    /**
      * Counts the number of items in the stream. This will usually require iterating the stream.
      * To avoid this, consider using {@link Jstream.nonIteratedCountOrUndefined}.
      *
@@ -2881,15 +2903,20 @@ export class SortedJstream<T> extends Jstream<T> {
         this.unsortedProperties = properties;
         this.order = order;
     }
-
+    
     public get thenBy(): {
         /** Sorts the stream by the given comparator in ascending order after all previous sorts. */
         (comparator: Comparator<T>): SortedJstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order after all previous sorts. */
         (keySelector: (item: T) => any): SortedJstream<T>;
+        /** Sorts the stream by the given field after all previous sorts. */
+        <Field extends keyof T>(field: Field): SortedJstream<T>;
     } {
         const self = this;
-        return function thenBy(order: Order<T>): SortedJstream<T> {
+        return function thenBy(order: Order<T> | keyof T): SortedJstream<T> {
+            if (!(order instanceof Function)) {
+                return self.thenBy(item => item[order]);
+            }
             return new SortedJstream<T>(
                 multiCompare([self.order, order]),
                 self.unsortedProperties,
@@ -2903,9 +2930,16 @@ export class SortedJstream<T> extends Jstream<T> {
         (comparator: Comparator<T>): SortedJstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order after all previous sorts. */
         (keySelector: (item: T) => any): SortedJstream<T>;
+        /** Sorts the stream by the given field in descending order after all previous sorts. */
+        <Field extends keyof T>(field: Field): SortedJstream<T>;
     } {
         const self = this;
-        return function thenByDescending(order: Order<T>): SortedJstream<T> {
+        return function thenByDescending(
+            order: Order<T> | keyof T
+        ): SortedJstream<T> {
+            if (!(order instanceof Function)) {
+                return self.thenByDescending(item => item[order]);
+            }
             return new SortedJstream<T>(
                 multiCompare([self.order, reverseOrder(order)]),
                 self.unsortedProperties,
