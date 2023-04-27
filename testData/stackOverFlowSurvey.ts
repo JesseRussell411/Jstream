@@ -1,13 +1,13 @@
 import csv from "csv-parse/sync";
 import fs from "fs/promises";
-import Jstream from "../src/Jstream";
+import Tstream from "../src/Tstream";
 
 import { lazy } from "../src/privateUtils/functional";
 
 export interface StackOverflowSurveyRespondent {}
 
 export const getStackOverflowSurvey = lazy(
-    async (): Promise<Jstream<StackOverflowSurveyRespondent>> => {
+    async (): Promise<Tstream<StackOverflowSurveyRespondent>> => {
         let data: any = undefined;
 
         try {
@@ -27,7 +27,7 @@ export const getStackOverflowSurvey = lazy(
             throw e;
         }
         const parsedData: string[][] = csv.parse(data);
-        return Jstream.from(parsedData)
+        return Tstream.from(parsedData)
             .skip(1)
             .map(e => {
                 const record: Record<string, string> = {};

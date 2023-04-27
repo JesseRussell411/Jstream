@@ -4,4 +4,3 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
 };
-asdf = 3;

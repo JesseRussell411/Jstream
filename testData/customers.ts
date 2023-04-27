@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import Jstream from "../src/Jstream";
+import Tstream from "../src/Tstream";
 
 import { lazy } from "../src/privateUtils/functional";
 
@@ -26,8 +26,8 @@ export interface Customer {
     bad_text: string;
 }
 
-export const getCustomers = lazy(async (): Promise<Jstream<Customer>> => {
+export const getCustomers = lazy(async (): Promise<Tstream<Customer>> => {
     const data = await fs.readFile("./testData/customerData.json");
     const customers = JSON.parse(data.toString()) as any[];
-    return Jstream.from(customers);
+    return Tstream.from(customers);
 });

@@ -1,5 +1,5 @@
-export * from "./Jstream";
-export * from "./AsyncJstream";
+export * from "./Tstream";
+export * from "./AsyncTstream";
 export * from "./errors/NeverEndingOperationError";
 export * from "./sorting/sorting";
 export * from "./symbols/symbols";

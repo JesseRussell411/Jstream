@@ -1,5 +1,5 @@
 import { inspect } from "util";
-import Jstream, { SortedJstream } from "../src/Jstream";
+import Tstream, { SortedTstream } from "../src/Tstream";
 import { pick } from "../src/privateUtils/objects";
 import { Customer, getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
@@ -7,7 +7,7 @@ import { getPurchases } from "../testData/purchases";
 import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
 import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
 import { requireNumberToBe } from "../src/privateUtils/errorGuards";
-import AsyncJstream from "../src/AsyncJstream";
+import AsyncTstream from "../src/AsyncTstream";
 import { max, min, takeFinal } from "../src/privateUtils/data";
 import { reverseOrder } from "../src/sorting/sorting";
 import DoubleLinkedList from "../src/privateUtils/dataStructures/DoubleLinkedList";
@@ -51,13 +51,13 @@ async function main() {
 
     // use(customerData, products, purchases);
     // console.log(
-    //     Jstream.from([1, 2, 3, 4] as const).fold(
+    //     Tstream.from([1, 2, 3, 4] as const).fold(
     //         (a, b) => a + b,
     //         (r, c) => r / c
     //     )
     // );
 
-    // const testtest = Jstream.of(
+    // const testtest = Tstream.of(
     //     undefined,
     //     3,
     //     undefined,
@@ -73,7 +73,7 @@ async function main() {
     // console.log(testtest.toString());
 
     // console.log(
-    //     Jstream.of(1, 3, 5, 6)
+    //     Tstream.of(1, 3, 5, 6)
     //         .filter(n => n % 2 === 0)
     //         .ifEmpty([42])
     //         .reduce(
@@ -83,26 +83,26 @@ async function main() {
     // );
 
     // console.log(
-    //     Jstream.from([1, 2, 3, [4, 5, 6, [7, 8, 9]]] as const)
+    //     Tstream.from([1, 2, 3, [4, 5, 6, [7, 8, 9]]] as const)
     //         .flatten()
     //         .flatten()
     //         .toArray()
     // );
 
-    // console.log(JSON.stringify(Jstream.of(1, 2, 3)));
+    // console.log(JSON.stringify(Tstream.of(1, 2, 3)));
     // console.log(
-    //     Jstream.from("the quick brown fox jumps over the lazy dog").makeString()
+    //     Tstream.from("the quick brown fox jumps over the lazy dog").makeString()
     // );
 
     // convert object to map
     // const obj = { one: 1, two: 2, three: 3, four: 4, five: 5 };
-    // const map = Jstream.fromObject(obj).toMap();
+    // const map = Tstream.fromObject(obj).toMap();
 
     // console.log({ obj, map });
 
     // convert map to object
 
-    // const obj2 = Jstream.from(map).toObject();
+    // const obj2 = Tstream.from(map).toObject();
 
     // console.log({ map, obj2 });
 
@@ -126,7 +126,7 @@ async function main() {
     // use(ids);
 
     // let flag = false;
-    // const jsssss = Jstream.from(
+    // const jsssss = Tstream.from(
     //     (function* () {
     //         yield 1;
     //         yield 2;
@@ -148,11 +148,11 @@ async function main() {
     // console.log(jsssss.toArray());
 
     // console.log(
-    //     Jstream.generate(i => i * 2)
+    //     Tstream.generate(i => i * 2)
     //         .take(10)
     //         .toArray()
     // );
-    // Jstream.generate(42, 42).indexed();
+    // Tstream.generate(42, 42).indexed();
 
     // console.log(
     //     customers
@@ -166,9 +166,9 @@ async function main() {
     //         .toArrayRecursive()[0]
     // );
 
-    // const groups = Jstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
+    // const groups = Tstream.of(1,2,3,4,5,6).groupBy(n => n % 2 === 0).asArrayRecursive();
 
-    // Jstream.from([
+    // Tstream.from([
     //     "foo",
     //     "bar",
     //     "train",
@@ -223,16 +223,16 @@ async function main() {
     // );
 
     // const array = [1,2,3,4];
-    // const jstream = Jstream.from(array);
-    // console.log(jstream.asArray() === array);
+    // const Tstream = Tstream.from(array);
+    // console.log(Tstream.asArray() === array);
     //@ts-ignore
-    // jstream.asArray()[0] = 9;
+    // Tstream.asArray()[0] = 9;
 
     // console.log(array);
 
-    // jstream.groupBy(n => n / 2).asArrayRecursive()
+    // Tstream.groupBy(n => n / 2).asArrayRecursive()
 
-    // const func = jstream.toArray;
+    // const func = Tstream.toArray;
 
     // console.log(func());
 
@@ -244,7 +244,7 @@ async function main() {
 
     // customers.filter("state", "is", "MT");
 
-    // console.log(Jstream.range(11).takeEveryNth(10n).toArray());
+    // console.log(Tstream.range(11).takeEveryNth(10n).toArray());
 
     // customers.filter("state", "is", "MA");
 
@@ -258,10 +258,10 @@ async function main() {
     //         }
     //         return dest;
     //     },
-    //     dest => dest.map(Jstream.over)
+    //     dest => dest.map(Tstream.over)
     // );
 
-    // AsyncJstream.over([
+    // AsyncTstream.over([
     //     Promise.resolve(2),
     //     4,
     //     Promise.resolve(Promise.resolve(6)),
@@ -283,7 +283,7 @@ async function main() {
 
     // console.log(Promise.resolve(Promise.resolve(42)));
     // console.log("----------------------------\n\n\n\n\n\n\n\n");
-    // console.log(Jstream.from([1, 1, 2, 3, 4, 5]).sort().take(5).asArray());
+    // console.log(Tstream.from([1, 1, 2, 3, 4, 5]).sort().take(5).asArray());
 
     // arr.sort((a, b) => a.charAt(0).localeCompare(b.charAt(0)));
     // console.log(arr);
@@ -311,7 +311,7 @@ async function main() {
         "419",
     ];
 
-    // const strs = Jstream.from([
+    // const strs = Tstream.from([
     //     "1",
     //     "1",
     //     "1",
@@ -353,7 +353,7 @@ async function main() {
         }
         console.log("=============");
 
-        const items = Jstream.generate(
+        const items = Tstream.generate(
             () => Math.trunc(Math.random() * 10_000_000_000),
             1_000_000
         ).toArray();
@@ -377,7 +377,7 @@ async function main() {
         }
         {
             const strscopy = [...strs];
-            const arrrr = new Jstream({ freshSource: true }, () => strscopy)
+            const arrrr = new Tstream({ freshSource: true }, () => strscopy)
                 .copyWithin(3, 5, 10)
                 .take(5)
                 .asArray();

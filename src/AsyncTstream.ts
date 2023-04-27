@@ -1,4 +1,4 @@
-import { JstreamProperties } from "./Jstream";
+import { TstreamProperties } from "./Tstream";
 import NeverEndingOperationError from "./errors/NeverEndingOperationError";
 import { asyncForEach, getIterator } from "./privateUtils/async";
 import { returns } from "./privateUtils/functional";
@@ -7,16 +7,16 @@ import { Awaitable, AwaitableIterable, AwaitableIterator } from "./types/async";
 import { General } from "./types/literals";
 import { BreakSignal } from "./types/symbols";
 // TODO expensiveSource, insertAll, documentation
-export type AsyncJstreamProperties<T> = JstreamProperties<T>;
+export type AsyncTstreamProperties<T> = TstreamProperties<T>;
 
-export default class AsyncJstream<T> implements AsyncIterable<T> {
+export default class AsyncTstream<T> implements AsyncIterable<T> {
     private readonly getSource: () => Awaitable<
         AwaitableIterable<T> | AwaitableIterator<T>
     >;
-    private readonly properties: AsyncJstreamProperties<T>;
+    private readonly properties: AsyncTstreamProperties<T>;
 
     public constructor(
-        properties: AsyncJstreamProperties<T>,
+        properties: AsyncTstreamProperties<T>,
         getSource: () => Awaitable<AwaitableIterable<T> | AwaitableIterator<T>>
     ) {
         this.getSource = getSource;
@@ -46,14 +46,14 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
             | (() => Awaitable<AwaitableIterable<T>>)
     ) {
         if (source instanceof Function) {
-            return new AsyncJstream({ expensiveSource: true }, source);
+            return new AsyncTstream({ expensiveSource: true }, source);
         } else {
-            return new AsyncJstream({}, returns(source));
+            return new AsyncTstream({}, returns(source));
         }
     }
 
-    public static of<T>(...items: T[]): AsyncJstream<T> {
-        return AsyncJstream.over(items);
+    public static of<T>(...items: T[]): AsyncTstream<T> {
+        return AsyncTstream.over(items);
     }
 
     public get forEach() {
@@ -69,8 +69,8 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         const self = this;
         return function map<R>(
             mapping: (item: T, index: number) => R
-        ): AsyncJstream<R> {
-            return new AsyncJstream({}, () => {
+        ): AsyncTstream<R> {
+            return new AsyncTstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined = undefined;
                 let i = -1;
                 return {
@@ -94,8 +94,8 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         const self = this;
         return function filter<R extends T = T>(
             condition: (item: T, index: number) => Awaitable<boolean>
-        ): AsyncJstream<R> {
-            return new AsyncJstream({}, () => {
+        ): AsyncTstream<R> {
+            return new AsyncTstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined = undefined;
                 let i = 0;
                 return {
@@ -124,7 +124,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     public get takeWhile() {
         const self = this;
         return function (condition: (item: T, index: number) => Awaitable<boolean>) {
-            return new AsyncJstream({}, () => {
+            return new AsyncTstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined;
                 let i = 0;
                 let done = false;
@@ -155,7 +155,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     public get skipWhile() {
         const self = this;
         return function (condition: (item: T, index: number) => Awaitable<boolean>) {
-            return new AsyncJstream({}, () => {
+            return new AsyncTstream({}, () => {
                 let iterator: AsyncIterator<T> | undefined;
                 let i = 0;
                 let done = false;
@@ -187,12 +187,12 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     /**
-     * Awaits all promises in the {@link AsyncJstream}.
+     * Awaits all promises in the {@link AsyncTstream}.
      */
     public get await() {
         const self = this;
-        return function await(): AsyncJstream<Awaited<T>> {
-            return new AsyncJstream({}, async function* () {
+        return function await(): AsyncTstream<Awaited<T>> {
+            return new AsyncTstream({}, async function* () {
                 yield* self;
             });
         };
@@ -220,7 +220,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         ): Promise<General<T>>;
 
         /**
-         * Reduces the stream to a single value in the same way as {@link Jstream.reduce}.
+         * Reduces the stream to a single value in the same way as {@link Tstream.reduce}.
          * The difference is that the given finalize function is called on the result.
          * The result of this function is returned instead of the original result.
          * @param finalize Applied to the result and the number of items in the stream. The result of this is what gets returned.
@@ -276,10 +276,10 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
 
     public get fold(): {
         /**
-         * Reduces the stream in the same way as {@link Jstream.reduce}.
+         * Reduces the stream in the same way as {@link Tstream.reduce}.
          * The difference is the given initialValue is used in place of the first value in the fist call to the given reducer function:
          * reducer(initialValue, first, 0). The index given corresponding to the item given to the function.
-         * Unlike {@link Jstream.reduce}, an Error isn't thrown in the case of an empty stream. The initial value is returned instead.
+         * Unlike {@link Tstream.reduce}, an Error isn't thrown in the case of an empty stream. The initial value is returned instead.
          */
         <R>(
             initialValue: R,
@@ -287,7 +287,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
         ): Promise<Awaited<R>>;
 
         /**
-         * Reduces the stream in the same way as {@link Jstream.fold}.
+         * Reduces the stream in the same way as {@link Tstream.fold}.
          * The difference is that the given finalize function is called on the result.
          * The result of this function is returned instead of the original result.
          * @param finalize Applied to the result and the number of items in the stream;
@@ -332,7 +332,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     /**
-     * @returns An array of the items in the {@link AsyncJstream}.
+     * @returns An array of the items in the {@link AsyncTstream}.
      */
     public get toArray() {
         const self = this;
@@ -346,7 +346,7 @@ export default class AsyncJstream<T> implements AsyncIterable<T> {
     }
 
     /**
-     * @returns A set of the items in the {@link AsyncJstream}.
+     * @returns A set of the items in the {@link AsyncTstream}.
      */
     public get toSet() {
         const self = this;

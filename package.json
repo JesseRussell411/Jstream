@@ -1,5 +1,5 @@
 {
-    "name": "js-tream",
+    "name": "t-streams",
     "version": "0.5.0",
     "description": "Tool for querying iterables.",
     "main": "/dist/index.js",
@@ -11,15 +11,15 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/JesseRussell411/jStream.git"
+        "url": "git+https://github.com/JesseRussell411/Tstream.git"
     },
     "author": "Jesse Russell",
     "license": "ISC",
     "keywords": ["data", "datascience", "iterable", "linq", "map", "filter", "reduce", "functional", "declarative", "query", "typescript", "stream", "array", "list", "iterator", "no-dependencies", "function"],
     "bugs": {
-        "url": "https://github.com/JesseRussell411/jStream/issues"
+        "url": "https://github.com/JesseRussell411/Tstream/issues"
     },
-    "homepage": "https://github.com/JesseRussell411/jStream#readme",
+    "homepage": "https://github.com/JesseRussell411/Tstream#readme",
     "devDependencies": {
         "@types/jest": "^29.2.2",
         "@types/node": "^18.15.11",

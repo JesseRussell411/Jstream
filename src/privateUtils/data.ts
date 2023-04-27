@@ -1,4 +1,4 @@
-import Jstream from "../Jstream";
+import Tstream from "../Tstream";
 import { asComparator, smartComparator } from "../sorting/sorting";
 import { AwaitableIterable, AwaitableIterator } from "../types/async";
 import {
@@ -125,7 +125,7 @@ export async function asyncToArray<T>(
 export function toArray<T>(items: Iterable<T>): T[];
 
 export function toArray<T>(items: Iterable<T>): T[] {
-    if (items instanceof Jstream) {
+    if (items instanceof Tstream) {
         return items.toArray();
     }
     return [...items];
@@ -279,7 +279,7 @@ export function nonIteratedCountOrUndefined(
     if (collection instanceof Array) return collection.length;
     if (collection instanceof Set) return collection.size;
     if (collection instanceof Map) return collection.size;
-    if (collection instanceof Jstream)
+    if (collection instanceof Tstream)
         return collection.nonIteratedCountOrUndefined();
     return undefined;
 }

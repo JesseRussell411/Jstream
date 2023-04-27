@@ -1,4 +1,4 @@
-import AsyncJstream from "./AsyncJstream";
+import AsyncTstream from "./AsyncTstream";
 import NeverEndingOperationError from "./errors/NeverEndingOperationError";
 import {
     asStandardCollection,
@@ -59,43 +59,43 @@ import { Comparator, Order } from "./types/sorting";
 import { BreakSignal } from "./types/symbols";
 
 /**
- * Properties of the {@link Jstream} and its source. Boolean properties are assumed to be "unknown" when undefined, not false.
+ * Properties of the {@link Tstream} and its source. Boolean properties are assumed to be "unknown" when undefined, not false.
  */
-export type JstreamProperties<_> = Readonly<
+export type TstreamProperties<_> = Readonly<
     Partial<{
         /** Each call to the source getter produces a new copy of the source. This means that the source can be modified safely, assuming it is a mutable collection like {@link Array}, which is not guarantied. */
         freshSource: boolean;
         /** Calling the source getter is expensive, ie. it's more than an O(1) operation. */
         expensiveSource: boolean;
-        /** Whether the {@link Jstream} is known to never end. False means unknown. */
+        /** Whether the {@link Tstream} is known to never end. False means unknown. */
         infinite: boolean;
     }>
 >;
 
-export type JstreamToArrayRecursive<T> = T extends Jstream<infer SubT>
-    ? JstreamToArrayRecursive<SubT>[]
+export type TstreamToArrayRecursive<T> = T extends Tstream<infer SubT>
+    ? TstreamToArrayRecursive<SubT>[]
     : T extends readonly []
     ? []
     : T extends readonly [infer TupleStart, ...infer TupleRest]
     ? [
-          JstreamToArrayRecursive<TupleStart>,
-          ...JstreamToArrayRecursive<TupleRest>
+          TstreamToArrayRecursive<TupleStart>,
+          ...TstreamToArrayRecursive<TupleRest>
       ]
     : T extends readonly (infer SubT)[]
-    ? JstreamToArrayRecursive<SubT>[]
+    ? TstreamToArrayRecursive<SubT>[]
     : T;
 
-export type JstreamAsArrayRecursive<T> = T extends Jstream<infer SubT>
-    ? readonly JstreamAsArrayRecursive<SubT>[]
+export type TstreamAsArrayRecursive<T> = T extends Tstream<infer SubT>
+    ? readonly TstreamAsArrayRecursive<SubT>[]
     : T extends readonly []
     ? []
     : T extends readonly [infer TupleStart, ...infer TupleRest]
     ? readonly [
-          JstreamAsArrayRecursive<TupleStart>,
-          ...JstreamAsArrayRecursive<TupleRest>
+          TstreamAsArrayRecursive<TupleStart>,
+          ...TstreamAsArrayRecursive<TupleRest>
       ]
     : T extends readonly (infer SubT)[]
-    ? readonly JstreamAsArrayRecursive<SubT>[]
+    ? readonly TstreamAsArrayRecursive<SubT>[]
     : T;
 
 export type Comparison =
@@ -143,11 +143,11 @@ export type Comparison =
 // TODO? arrow functions can be named too if they are assigned to a variable first.
 // Consider changing to named arrow functions if a reason to do so comes up.
 
-export default class Jstream<T> implements Iterable<T> {
+export default class Tstream<T> implements Iterable<T> {
     // =================
     //   private static
     // =================
-    private static readonly emptyJstream: Jstream<any> = new Jstream(
+    private static readonly emptyTstream: Tstream<any> = new Tstream(
         {},
         emptyIterable
     );
@@ -155,11 +155,11 @@ export default class Jstream<T> implements Iterable<T> {
     //   protected
     // =============
     protected readonly getSource: () => Iterable<T>;
-    protected readonly properties: JstreamProperties<T>;
+    protected readonly properties: TstreamProperties<T>;
 
     /**
-     * Ensures that the {@link Jstream} is not known to be infinite. {@link https://en.wikipedia.org/wiki/Halting_problem Does not ensure that it is finite}.
-     * @throws If the {@link Jstream} is known to be infinite.
+     * Ensures that the {@link Tstream} is not known to be infinite. {@link https://en.wikipedia.org/wiki/Halting_problem Does not ensure that it is finite}.
+     * @throws If the {@link Tstream} is known to be infinite.
      */
     protected requireThisNotInfinite(message?: string) {
         if (this.properties.infinite) {
@@ -172,7 +172,7 @@ export default class Jstream<T> implements Iterable<T> {
      * @throws If the {@link Iterable} is known to be infinite.
      */
     protected requireOtherNotInfinite(other: Iterable<any>, message?: string) {
-        if (other instanceof Jstream && other.properties.infinite) {
+        if (other instanceof Tstream && other.properties.infinite) {
             throw new NeverEndingOperationError(message);
         }
     }
@@ -181,7 +181,7 @@ export default class Jstream<T> implements Iterable<T> {
     //  public
     // ========
     public constructor(
-        properties: JstreamProperties<T>,
+        properties: TstreamProperties<T>,
         getSource: () => Iterable<T>
     ) {
         this.getSource = getSource;
@@ -189,7 +189,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns An iterator over the Jstream.
+     * @returns An iterator over the Tstream.
      */
     public get [Symbol.iterator]() {
         return () => {
@@ -198,13 +198,13 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns A Jstream over the given source or the result of the given function.
+     * @returns A Tstream over the given source or the result of the given function.
      */
     public static from<T>(
         source: Iterable<T> | Iterator<T> | (() => Iterable<T> | Iterator<T>)
-    ): Jstream<T> {
+    ): Tstream<T> {
         if (source instanceof Function) {
-            return new Jstream({ expensiveSource: true }, () => {
+            return new Tstream({ expensiveSource: true }, () => {
                 const subSource = source();
 
                 if (isIterable(subSource)) {
@@ -213,39 +213,39 @@ export default class Jstream<T> implements Iterable<T> {
                     return iterableFromIterator(subSource);
                 }
             });
-        } else if (source instanceof Jstream) {
+        } else if (source instanceof Tstream) {
             return source;
         } else if (
             source instanceof Array ||
             source instanceof Set ||
             source instanceof Map
         ) {
-            return new Jstream({ expensiveSource: false }, () => source);
+            return new Tstream({ expensiveSource: false }, () => source);
         } else if (isIterable(source)) {
-            return new Jstream({ expensiveSource: false }, () => source);
+            return new Tstream({ expensiveSource: false }, () => source);
         } else {
             const iterable = iterableFromIterator(source);
-            return new Jstream({ expensiveSource: false }, () => iterable);
+            return new Tstream({ expensiveSource: false }, () => iterable);
         }
     }
 
     /**
-     * @returns A Jstream over the given items.
+     * @returns A Tstream over the given items.
      */
-    public static of<T>(...items: readonly T[]): Jstream<T> {
-        return new Jstream({}, () => items);
+    public static of<T>(...items: readonly T[]): Tstream<T> {
+        return new Tstream({}, () => items);
     }
 
     /**
-     * @returns An empty Jstream of the given type.
+     * @returns An empty Tstream of the given type.
      */
-    public static empty<T>(): Jstream<T> {
-        return Jstream.emptyJstream;
+    public static empty<T>(): Tstream<T> {
+        return Tstream.emptyTstream;
     }
 
     // TODO don't take non enumerable properties, like what Object.entries does
     /**
-     * @returns A Jstream over the entries of the given object.
+     * @returns A Tstream over the entries of the given object.
      */
     public static fromObject<K extends keyof any, V>(
         object: Record<K, V> | (() => Record<K, V>),
@@ -258,11 +258,11 @@ export default class Jstream<T> implements Iterable<T> {
             /** Whether to include fields indexed by strings. Defaults to true. */
             includeStringKeys?: boolean;
         } = {}
-    ): Jstream<[K & (string | symbol), V]> {
+    ): Tstream<[K & (string | symbol), V]> {
         // TODO add inherited values
         const instance = resultOf(object);
         if (includeStringKeys && includeSymbolKeys) {
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 () =>
                     [
@@ -271,7 +271,7 @@ export default class Jstream<T> implements Iterable<T> {
                     ].map(key => [key as any, (instance as any)[key]])
             );
         } else if (includeStringKeys) {
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 () =>
                     Object.getOwnPropertyNames(instance).map(name => [
@@ -280,7 +280,7 @@ export default class Jstream<T> implements Iterable<T> {
                     ])
             );
         } else if (includeSymbolKeys) {
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 () =>
                     Object.getOwnPropertySymbols(instance).map(symbol => [
@@ -289,25 +289,25 @@ export default class Jstream<T> implements Iterable<T> {
                     ])
             );
         } else {
-            return Jstream.empty();
+            return Tstream.empty();
         }
     }
 
     // TODO docs
     public static get generate(): {
-        <T>(generator: (index: number) => T): Jstream<T>;
-        <T>(generator: (index: number) => T, count: number): Jstream<T>;
-        <T>(generator: (index: bigint) => T, count: bigint): Jstream<T>;
-        <T>(item: T, count?: number | bigint): Jstream<T>;
+        <T>(generator: (index: number) => T): Tstream<T>;
+        <T>(generator: (index: number) => T, count: number): Tstream<T>;
+        <T>(generator: (index: bigint) => T, count: bigint): Tstream<T>;
+        <T>(item: T, count?: number | bigint): Tstream<T>;
     } {
         return <T>(
             itemOrGenerator: T | ((index: number | bigint) => T),
             count: number | bigint = Infinity
-        ): Jstream<T> => {
+        ): Tstream<T> => {
             requireIntegerOrInfinity(count);
             requireNonNaN(requireNonNegative(count));
 
-            return new Jstream({ infinite: count === Infinity }, function* () {
+            return new Tstream({ infinite: count === Infinity }, function* () {
                 let i = typeof count === "number" ? 0 : 0n;
                 if (itemOrGenerator instanceof Function) {
                     for (; i < count; i++) {
@@ -323,57 +323,57 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by step.
+     * @returns A Tstream over a range of integers from start to end, incremented by step.
      */
     public static range(
         start: bigint,
         end: bigint,
         step: bigint
-    ): Jstream<bigint>;
+    ): Tstream<bigint>;
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
+     * @returns A Tstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
      */
-    public static range(start: bigint, end: bigint): Jstream<bigint>;
+    public static range(start: bigint, end: bigint): Tstream<bigint>;
     /**
-     * @returns A Jstream over a range of integers from 0 to end, incremented by 1.
+     * @returns A Tstream over a range of integers from 0 to end, incremented by 1.
      */
-    public static range(end: bigint): Jstream<bigint>;
+    public static range(end: bigint): Tstream<bigint>;
 
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by step.
+     * @returns A Tstream over a range of integers from start to end, incremented by step.
      */
     public static range(
         start: number | bigint,
         end: number | bigint,
         step: number | bigint
-    ): Jstream<number>;
+    ): Tstream<number>;
     /**
-     * @returns A Jstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
+     * @returns A Tstream over a range of integers from start to end, incremented by 1 or -1 if end is less than start.
      */
     public static range(
         start: number | bigint,
         end: number | bigint
-    ): Jstream<number>;
+    ): Tstream<number>;
     /**
-     * @returns A Jstream over a range of integers from 0 to end, incremented by 1.
+     * @returns A Tstream over a range of integers from 0 to end, incremented by 1.
      */
-    public static range(end: number | bigint): Jstream<number>;
+    public static range(end: number | bigint): Tstream<number>;
 
     public static range(
         _startOrEnd: number | bigint,
         _end?: number | bigint,
         _step?: number | bigint
-    ): Jstream<number> | Jstream<bigint> {
+    ): Tstream<number> | Tstream<bigint> {
         if (_end === undefined) {
             const end = _startOrEnd;
-            return new Jstream(
+            return new Tstream(
                 { infinite: end === Infinity },
                 returns(range(end))
             );
         } else if (_step === undefined) {
             const start = _startOrEnd;
             const end = _end;
-            return new Jstream(
+            return new Tstream(
                 { infinite: end === Infinity },
                 returns(range(start, end))
             );
@@ -381,7 +381,7 @@ export default class Jstream<T> implements Iterable<T> {
             const start = _startOrEnd;
             const end = _end;
             const step = _step;
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         (step > 0 && end === Infinity) ||
@@ -397,8 +397,8 @@ export default class Jstream<T> implements Iterable<T> {
     // ================
 
     /**
-     * Whether the {@link Jstream} never ends. Does not return false because it cannot be known whether the {@link Jstream} ends {@link https://en.wikipedia.org/wiki/Halting_problem without iterating it}.
-     * @returns true if the {@link Jstream} is known to be infinite or undefined otherwise.
+     * Whether the {@link Tstream} never ends. Does not return false because it cannot be known whether the {@link Tstream} ends {@link https://en.wikipedia.org/wiki/Halting_problem without iterating it}.
+     * @returns true if the {@link Tstream} is known to be infinite or undefined otherwise.
      */
     public get isInfinite(): true | undefined {
         if (this.properties.infinite) {
@@ -413,7 +413,7 @@ export default class Jstream<T> implements Iterable<T> {
     // =============
 
     /**
-     * Calls the action on each item in the {@link Jstream} in order, one at a time. Stops if the action returns {@link breakSignal}.
+     * Calls the action on each item in the {@link Tstream} in order, one at a time. Stops if the action returns {@link breakSignal}.
      * @param action The action. Return {@link breakSignal} to stop the loop.
      * @returns void or {@link breakSignal} if {@link breakSignal} was returned by the action.
      */
@@ -436,19 +436,19 @@ export default class Jstream<T> implements Iterable<T> {
     // =====================
 
     public get map(): {
-        <Field extends keyof T>(fields: Field[]): Jstream<
+        <Field extends keyof T>(fields: Field[]): Tstream<
             Record<Field, T[Field]>
         >;
         /**
          * Maps each item in the stream to a new item using the given mapping function.
          */
-        <R>(mapping: (item: T, index: number) => R): Jstream<R>;
+        <R>(mapping: (item: T, index: number) => R): Tstream<R>;
     } {
         const self = this;
         return function map(arg: any) {
             if (arg instanceof Function) {
                 const mapping = arg;
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         let i = 0;
@@ -459,7 +459,7 @@ export default class Jstream<T> implements Iterable<T> {
                     }
                 );
             } else {
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         for (const item of self) {
@@ -475,7 +475,7 @@ export default class Jstream<T> implements Iterable<T> {
         const self = this;
         return function indexBy<K>(
             keySelector: (item: T, index: number) => K
-        ): Jstream<readonly [index: K, item: T]> {
+        ): Tstream<readonly [index: K, item: T]> {
             return self.map(
                 (item, index) => [keySelector(item, index), item] as const
             );
@@ -487,7 +487,7 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get indexed() {
         const self = this;
-        return function indexed(): Jstream<readonly [index: number, item: T]> {
+        return function indexed(): Tstream<readonly [index: number, item: T]> {
             return self.indexBy((_item, index) => index);
         };
     }
@@ -496,24 +496,24 @@ export default class Jstream<T> implements Iterable<T> {
     public get filter(): {
         <R extends T = T>(
             condition: (item: T, index: number) => boolean
-        ): Jstream<R>;
+        ): Tstream<R>;
         <Field extends keyof T, R extends T = T>(
             field: Field,
             comparison: "is",
             value: T[Field]
-        ): Jstream<R>;
+        ): Tstream<R>;
         <Field extends keyof T, O, R extends T = T>(
             field: Field,
             comparison: Comparison,
             value: O,
             order?: Order<T | O>
-        ): Jstream<R>;
+        ): Tstream<R>;
         <M, O, R extends T = T>(
             getField: (item: T, index: number) => M,
             comparison: Comparison,
             value: O,
             order?: Order<M | O>
-        ): Jstream<R>;
+        ): Tstream<R>;
     } {
         const self = this;
         return function filter(
@@ -529,7 +529,7 @@ export default class Jstream<T> implements Iterable<T> {
             // case for test function that returns a boolean
             if (args.length === 1) {
                 const comparison = args[0];
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         let i = 0;
@@ -546,7 +546,7 @@ export default class Jstream<T> implements Iterable<T> {
 
             // special case for Map source and field of 0 with "is" comparison
             if (comparison === "is" && field == 0) {
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         const source = self.getSource();
@@ -585,7 +585,7 @@ export default class Jstream<T> implements Iterable<T> {
             const condition = conditions[comparison];
 
             if (typeof field === "function") {
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         let i = 0;
@@ -596,7 +596,7 @@ export default class Jstream<T> implements Iterable<T> {
                     }
                 );
             } else {
-                return new Jstream(
+                return new Tstream(
                     { infinite: self.properties.infinite },
                     function* () {
                         for (const item of self) {
@@ -613,12 +613,12 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get concat() {
         const self = this;
-        return function concat<O>(items: Iterable<O>): Jstream<T | O> {
-            return new Jstream(
+        return function concat<O>(items: Iterable<O>): Tstream<T | O> {
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite ||
-                        (items instanceof Jstream && items.isInfinite),
+                        (items instanceof Tstream && items.isInfinite),
                 },
                 function* () {
                     yield* self;
@@ -633,12 +633,12 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get preConcat() {
         const self = this;
-        return function preConcat<O>(items: Iterable<O>): Jstream<O | T> {
-            return new Jstream(
+        return function preConcat<O>(items: Iterable<O>): Tstream<O | T> {
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite ||
-                        (items instanceof Jstream && items.isInfinite),
+                        (items instanceof Tstream && items.isInfinite),
                 },
                 function* () {
                     yield* items;
@@ -653,8 +653,8 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get append() {
         const self = this;
-        return function append<O>(item: O): Jstream<T | O> {
-            return new Jstream(
+        return function append<O>(item: O): Tstream<T | O> {
+            return new Tstream(
                 {
                     freshSource: self.properties.freshSource,
                     expensiveSource: self.properties.expensiveSource,
@@ -683,56 +683,56 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get prepend() {
         const self = this;
-        return function prepend<O>(item: O): Jstream<O | T> {
+        return function prepend<O>(item: O): Tstream<O | T> {
             return self.preConcat([item]);
         };
     }
 
     public get sort(): {
-        (): SortedJstream<T>;
+        (): SortedTstream<T>;
         /** Sorts the stream using the given comparator in ascending order. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
     } {
         const self = this;
         return function sort(
             order: Order<T> = smartComparator
-        ): SortedJstream<T> {
+        ): SortedTstream<T> {
             return self.sortBy(order);
         };
     }
 
     public get sortDescending(): {
-        (): SortedJstream<T>;
+        (): SortedTstream<T>;
         /** Sorts the stream using the given comparator in descending order. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
     } {
         const self = this;
         return function sortDescending(
             order: Order<T> = smartComparator
-        ): SortedJstream<T> {
+        ): SortedTstream<T> {
             return self.sortByDescending(order);
         };
     }
     public get sortBy(): {
         /** Sorts the stream using the given comparator in ascending order. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
         /** Sorts the stream by the given field. */
-        <Field extends keyof T>(field: Field): SortedJstream<T>;
+        <Field extends keyof T>(field: Field): SortedTstream<T>;
     } {
         const self = this;
-        return function sortBy(order: Order<T> | keyof T): SortedJstream<T> {
+        return function sortBy(order: Order<T> | keyof T): SortedTstream<T> {
             if (!(order instanceof Function)) {
                 return self.sortBy(item => item[order]);
             }
-            return new SortedJstream(
+            return new SortedTstream(
                 order,
-                asSortedJstreamProperties(self.properties),
+                asSortedTstreamProperties(self.properties),
                 self.getSource
             );
         };
@@ -740,16 +740,16 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get sortByDescending(): {
         /** Sorts the stream using the given comparator in descending order. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
         /** Sorts the stream by the given field in descending order. */
-        <Field extends keyof T>(field: Field): SortedJstream<T>;
+        <Field extends keyof T>(field: Field): SortedTstream<T>;
     } {
         const self = this;
         return function sortByDescending(
             order: Order<T> | keyof T
-        ): SortedJstream<T> {
+        ): SortedTstream<T> {
             if (!(order instanceof Function)) {
                 return self.sortByDescending(item => item[order]);
             }
@@ -758,11 +758,11 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Reverses the order of the {@link Jstream}.
+     * Reverses the order of the {@link Tstream}.
      */
     public get reverse() {
         const self = this;
-        return function reverse(): Jstream<T> {
+        return function reverse(): Tstream<T> {
             self.requireThisNotInfinite("cannot reverse infinite items");
             const newGetSource = () => {
                 const source = self.getSource();
@@ -780,7 +780,7 @@ export default class Jstream<T> implements Iterable<T> {
                 }
             };
 
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 newGetSource
             );
@@ -793,13 +793,13 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get repeat() {
         const self = this;
-        return function repeat(times: number | bigint): Jstream<T> {
+        return function repeat(times: number | bigint): Tstream<T> {
             requireIntegerOrInfinity(times);
 
-            if (times === 0 || times === 0n) return Jstream.empty();
+            if (times === 0 || times === 0n) return Tstream.empty();
             if (times < 0) return self.reverse().repeat(-times);
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite || times === Infinity },
                 times === Infinity
                     ? function* () {
@@ -823,7 +823,7 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get defined() {
         const self = this;
-        return function defined(): Jstream<T & ({} | null)> {
+        return function defined(): Tstream<T & ({} | null)> {
             return self.filter(item => item !== undefined);
         };
     }
@@ -833,13 +833,13 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get nonNull() {
         const self = this;
-        return function nonNull(): Jstream<T & ({} | undefined)> {
+        return function nonNull(): Tstream<T & ({} | undefined)> {
             return self.filter(item => item !== null);
         };
     }
 
     /**
-     * Filters duplicate items out of the {@link Jstream}.
+     * Filters duplicate items out of the {@link Tstream}.
      *
      * @param How to identify each item. Defaults to using the item itself.
      */
@@ -847,8 +847,8 @@ export default class Jstream<T> implements Iterable<T> {
         const self = this;
         return function distinct(
             identifier: (item: T) => any = identity
-        ): Jstream<T> {
-            return new Jstream(
+        ): Tstream<T> {
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 function* () {
                     const source = self.getSource();
@@ -880,10 +880,10 @@ export default class Jstream<T> implements Iterable<T> {
             target: number | bigint,
             start: number | bigint,
             end?: number | bigint
-        ): Jstream<T> {
+        ): Tstream<T> {
             self.requireThisNotInfinite();
             //TODO optimize
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 () =>
                     self
@@ -900,7 +900,7 @@ export default class Jstream<T> implements Iterable<T> {
     public get shuffle() {
         const self = this;
         return function shuffle(getRandomInt?: (upperBound: number) => number) {
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 () => {
                     const array = self.toArray();
@@ -912,18 +912,18 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Skips the given number of items from the start of the {@link Jstream}.
-     * @param count How many items to skip. Must be a non negative integer. If {@link Infinity}, an empty {@link Jstream} is returned.
+     * Skips the given number of items from the start of the {@link Tstream}.
+     * @param count How many items to skip. Must be a non negative integer. If {@link Infinity}, an empty {@link Tstream} is returned.
      */
     public get skip() {
         const self = this;
-        return function skip(count: number | bigint): Jstream<T> {
-            if (count === Infinity) return Jstream.empty();
+        return function skip(count: number | bigint): Tstream<T> {
+            if (count === Infinity) return Tstream.empty();
             if (count === 0 || count === 0n) return self;
             requireNonNegative(count);
             requireInteger(count);
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 function* () {
                     const iterator = self[Symbol.iterator]();
@@ -944,11 +944,11 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get skipEveryNth() {
         const self = this;
-        return function skipEveryNth(n: number | bigint): Jstream<T> {
+        return function skipEveryNth(n: number | bigint): Tstream<T> {
             requireGreaterThanZero(n);
             requireInteger(n);
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 typeof n === "number"
                     ? function* () {
@@ -979,9 +979,9 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get skipSparse() {
         const self = this;
-        return function skipSparse(count: number | bigint): Jstream<T> {
+        return function skipSparse(count: number | bigint): Tstream<T> {
             if (count === 0 || count === 0n) return self;
-            if (count === Infinity) return Jstream.empty();
+            if (count === Infinity) return Tstream.empty();
 
             if (self.properties.infinite) {
                 throw new NeverEndingOperationError();
@@ -991,7 +991,7 @@ export default class Jstream<T> implements Iterable<T> {
             }
             requireSafeInteger(requireNonNegative(count));
 
-            return new Jstream({}, function* () {
+            return new Tstream({}, function* () {
                 const collection = asStandardCollection(self.getSource());
                 const length = nonIteratedCount(collection);
 
@@ -1014,9 +1014,9 @@ export default class Jstream<T> implements Iterable<T> {
     /** Skips the given number of items at the end of the stream. */
     public get skipFinal() {
         const self = this;
-        return function skipFinal(count: number | bigint): Jstream<T> {
+        return function skipFinal(count: number | bigint): Tstream<T> {
             if (count === 0 || count === 0n) return self;
-            if (count === Infinity) return Jstream.empty();
+            if (count === Infinity) return Tstream.empty();
 
             self.requireThisNotInfinite();
             requireNonNegative(requireSafeInteger(count));
@@ -1025,7 +1025,7 @@ export default class Jstream<T> implements Iterable<T> {
                 return self.skipFinal(Number(count));
             }
 
-            return new Jstream(
+            return new Tstream(
                 {
                     freshSource: self.properties.freshSource,
                     expensiveSource: self.properties.expensiveSource,
@@ -1064,10 +1064,10 @@ export default class Jstream<T> implements Iterable<T> {
      * Takes the rest including the item that caused the condition to return false.
      */
     public get skipWhile() {
-        return (condition: (item: T, index: number) => boolean): Jstream<T> => {
+        return (condition: (item: T, index: number) => boolean): Tstream<T> => {
             const self = this;
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: this.properties.infinite },
                 function* () {
                     const iterator = self[Symbol.iterator]();
@@ -1096,7 +1096,7 @@ export default class Jstream<T> implements Iterable<T> {
         const self = this;
         return function skipUntil(
             condition: (item: T, index: number) => boolean
-        ): Jstream<T> {
+        ): Tstream<T> {
             return self.skipWhile((item, index) => !condition(item, index));
         };
     }
@@ -1104,12 +1104,12 @@ export default class Jstream<T> implements Iterable<T> {
     /** Takes the given number of items from the stream and skips the rest. */
     public get take() {
         const self = this;
-        return function take(count: number | bigint): Jstream<T> {
+        return function take(count: number | bigint): Tstream<T> {
             if (count === Infinity) return self;
             requireNonNegative(count);
             requireInteger(count);
 
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite: self.properties.infinite && count === Infinity,
                     freshSource: self.properties.freshSource,
@@ -1146,12 +1146,12 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get takeEveryNth() {
         const self = this;
-        return function takeEveryNth(n: number | bigint): Jstream<T> {
-            if (n === Infinity) return Jstream.empty();
+        return function takeEveryNth(n: number | bigint): Tstream<T> {
+            if (n === Infinity) return Tstream.empty();
             requireGreaterThanZero(n);
             requireInteger(n);
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 typeof n === "number"
                     ? function* () {
@@ -1180,9 +1180,9 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get takeSparse() {
         const self = this;
-        return function takeSparse(count: number | bigint): Jstream<T> {
+        return function takeSparse(count: number | bigint): Tstream<T> {
             if (count === 0 || count === 0n) {
-                return Jstream.empty();
+                return Tstream.empty();
             }
 
             if (typeof count === "bigint") {
@@ -1195,7 +1195,7 @@ export default class Jstream<T> implements Iterable<T> {
 
             requireSafeInteger(requireNonNegative(count));
 
-            return new Jstream({}, function* () {
+            return new Tstream({}, function* () {
                 const collection = asStandardCollection(self.getSource());
                 const length = nonIteratedCount(collection);
 
@@ -1219,16 +1219,16 @@ export default class Jstream<T> implements Iterable<T> {
     public get takeFinal() {
         const self = this;
         const externalTakeFinal = takeFinal;
-        return function takeFinal(count: number | bigint): Jstream<T> {
+        return function takeFinal(count: number | bigint): Tstream<T> {
             if (count === Infinity) return self;
             requireNonNegative(requireSafeIntegerOrInfinity(count));
             self.requireThisNotInfinite(
                 "cannot take the final items of infinite items"
             );
 
-            if (count === 0 || count === 0n) return Jstream.empty();
+            if (count === 0 || count === 0n) return Tstream.empty();
 
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite && count === Infinity },
                 () => externalTakeFinal(self, count)
             );
@@ -1237,9 +1237,9 @@ export default class Jstream<T> implements Iterable<T> {
 
     /** Takes items from stream until one causes the condition to return false. The rest are skipped including the item that caused the condition to return false. */
     public get takeWhile() {
-        return (condition: (item: T, index: number) => boolean): Jstream<T> => {
+        return (condition: (item: T, index: number) => boolean): Tstream<T> => {
             const self = this;
-            return new Jstream({}, function* () {
+            return new Tstream({}, function* () {
                 let index = 0;
                 for (const item of self) {
                     if (condition(item, index)) {
@@ -1255,7 +1255,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     /** Takes items from stream until one causes the condition to return true. The rest are skipped including the item that caused the condition to return false. */
     public get takeUntil() {
-        return (condition: (item: T, index: number) => boolean): Jstream<T> => {
+        return (condition: (item: T, index: number) => boolean): Tstream<T> => {
             return this.takeWhile((item, index) => !condition(item, index));
         };
     }
@@ -1264,8 +1264,8 @@ export default class Jstream<T> implements Iterable<T> {
         /**
          * Groups the items in the stream by the given keySelector.
          */
-        <K>(keySelector: (item: T, index: number) => K): Jstream<
-            readonly [key: K, group: Jstream<T>]
+        <K>(keySelector: (item: T, index: number) => K): Tstream<
+            readonly [key: K, group: Tstream<T>]
         >;
         /**
          * Groups the items in the stream by the given keySelector.
@@ -1274,14 +1274,14 @@ export default class Jstream<T> implements Iterable<T> {
          */
         <K, G>(
             keySelector: (item: T, index: number) => K,
-            groupSelector: (group: Jstream<T>, key: K) => G
-        ): Jstream<readonly [key: K, group: G]>;
+            groupSelector: (group: Tstream<T>, key: K) => G
+        ): Tstream<readonly [key: K, group: G]>;
 
         /**
          * Groups the items in the stream by the given key.
          */
-        <Field extends keyof T>(field: Field): Jstream<
-            readonly [key: T[Field], group: Jstream<T>]
+        <Field extends keyof T>(field: Field): Tstream<
+            readonly [key: T[Field], group: Tstream<T>]
         >;
 
         /**
@@ -1291,14 +1291,14 @@ export default class Jstream<T> implements Iterable<T> {
          */
         <Field extends keyof T, G>(
             field: Field,
-            groupSelector: (group: Jstream<T>, key: Field) => G
-        ): Jstream<readonly [key: T[Field], group: G]>;
+            groupSelector: (group: Tstream<T>, key: Field) => G
+        ): Tstream<readonly [key: T[Field], group: G]>;
     } {
         const self = this;
         return function groupBy<G>(
             keySelectorOrField: ((item: T, index: number) => any) | keyof T,
-            groupSelector?: (group: Jstream<T>, key: any) => G
-        ): Jstream<readonly [key: any, group: Jstream<T> | G]> {
+            groupSelector?: (group: Tstream<T>, key: any) => G
+        ): Tstream<readonly [key: any, group: Tstream<T> | G]> {
             self.requireThisNotInfinite("cannot group infinite items");
 
             const newGetSource = () => {
@@ -1324,9 +1324,9 @@ export default class Jstream<T> implements Iterable<T> {
                     index++;
                 }
 
-                // convert all the groups to Jstreams
+                // convert all the groups to Tstreams
                 for (const entry of groups) {
-                    groups.set(entry[0], new Jstream({}, returns(entry[1])));
+                    groups.set(entry[0], new Tstream({}, returns(entry[1])));
                 }
 
                 if (groupSelector !== undefined) {
@@ -1339,7 +1339,7 @@ export default class Jstream<T> implements Iterable<T> {
                 return groups;
             };
 
-            return new Jstream(
+            return new Tstream(
                 { expensiveSource: true, freshSource: true },
                 newGetSource
             ) as any;
@@ -1350,16 +1350,16 @@ export default class Jstream<T> implements Iterable<T> {
         /**
          * Replaces the contents of the stream with the given alternative if the stream is empty.
          */
-        <A>(alternative: Iterable<A>): Jstream<T> | Jstream<A>;
+        <A>(alternative: Iterable<A>): Tstream<T> | Tstream<A>;
         /**
          * Replaces the contents of the stream with the result of the given function if the stream is empty.
          */
-        <A>(alternative: () => Iterable<A>): Jstream<T> | Jstream<A>;
+        <A>(alternative: () => Iterable<A>): Tstream<T> | Tstream<A>;
     } {
         return <A>(
             alternative: Iterable<A> | (() => Iterable<A>)
-        ): Jstream<T> | Jstream<A> => {
-            return new Jstream<T | A>(
+        ): Tstream<T> | Tstream<A> => {
+            return new Tstream<T | A>(
                 {
                     expensiveSource: true,
                     infinite: this.properties.infinite,
@@ -1389,7 +1389,7 @@ export default class Jstream<T> implements Iterable<T> {
                         } while (!(next = iterator.next()).done);
                     })();
                 }
-            ) as Jstream<T> | Jstream<A>;
+            ) as Tstream<T> | Tstream<A>;
         };
     }
 
@@ -1399,10 +1399,10 @@ export default class Jstream<T> implements Iterable<T> {
      */
     public get flatten() {
         const self = this;
-        return function flatten(): Jstream<
+        return function flatten(): Tstream<
             T extends Iterable<infer SubT> ? SubT : T
         > {
-            return new Jstream(
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 function* () {
                     for (const item of self) {
@@ -1427,8 +1427,8 @@ export default class Jstream<T> implements Iterable<T> {
         return function split<O>(
             deliminator: Iterable<O>,
             equalityChecker?: (t: T, o: O) => boolean
-        ): Jstream<T[]> {
-            return new Jstream({ infinite: self.properties.infinite }, () =>
+        ): Tstream<T[]> {
+            return new Tstream({ infinite: self.properties.infinite }, () =>
                 externalSplit(self, deliminator, equalityChecker)
             );
         };
@@ -1438,16 +1438,16 @@ export default class Jstream<T> implements Iterable<T> {
      * Concatenates to the end of the stream any items that aren't already in the stream.
      */
     public get including() {
-        return <O>(other: Iterable<O>): Jstream<T | O> => {
-            if (other === this) return this as Jstream<T | O>;
+        return <O>(other: Iterable<O>): Tstream<T | O> => {
+            if (other === this) return this as Tstream<T | O>;
 
             const self = this;
 
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         this.properties.infinite ||
-                        (other instanceof Jstream && other.isInfinite),
+                        (other instanceof Tstream && other.isInfinite),
                 },
                 function* () {
                     const otherSet = new Set<any>(other);
@@ -1468,11 +1468,11 @@ export default class Jstream<T> implements Iterable<T> {
     public get zipLoose() {
         const self = this;
         return function zipLoose<O>(other: Iterable<O>) {
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite ||
-                        (other instanceof Jstream && other.isInfinite),
+                        (other instanceof Tstream && other.isInfinite),
                 },
                 function* () {
                     const iterator = self[Symbol.iterator]();
@@ -1505,11 +1505,11 @@ export default class Jstream<T> implements Iterable<T> {
     public get zip() {
         const self = this;
         return function zip<O>(other: Iterable<O>) {
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite &&
-                        other instanceof Jstream &&
+                        other instanceof Tstream &&
                         other.isInfinite,
                 },
                 function* () {
@@ -1534,19 +1534,19 @@ export default class Jstream<T> implements Iterable<T> {
         <O, R>(
             other: Iterable<O>,
             merger: (t: T, o: O, index: number) => R
-        ): Jstream<R>;
-        <O>(other: Iterable<O>): Jstream<readonly [T, O]>;
+        ): Tstream<R>;
+        <O>(other: Iterable<O>): Tstream<readonly [T, O]>;
     } {
         const self = this;
         return function merge<O>(
             other: Iterable<O>,
             merger: (t: T, o: O, index: number) => any = (t, o) => [t, o]
         ) {
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite &&
-                        other instanceof Jstream &&
+                        other instanceof Tstream &&
                         other.properties.infinite,
                 },
                 function* () {
@@ -1570,8 +1570,8 @@ export default class Jstream<T> implements Iterable<T> {
         <O, R>(
             other: Iterable<O>,
             merger: (t: T | undefined, o: O | undefined, index: number) => R
-        ): Jstream<R>;
-        <O>(other: Iterable<O>): Jstream<
+        ): Tstream<R>;
+        <O>(other: Iterable<O>): Tstream<
             readonly [T | undefined, O | undefined]
         >;
     } {
@@ -1584,11 +1584,11 @@ export default class Jstream<T> implements Iterable<T> {
                 index: number
             ) => any = (t, o) => [t, o]
         ) {
-            return new Jstream(
+            return new Tstream(
                 {
                     infinite:
                         self.properties.infinite &&
-                        other instanceof Jstream &&
+                        other instanceof Tstream &&
                         other.properties.infinite,
                 },
                 function* () {
@@ -1619,8 +1619,8 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get interleave() {
         const self = this;
-        return function interleave<O>(items: Iterable<O>): Jstream<T | O> {
-            return new Jstream(
+        return function interleave<O>(items: Iterable<O>): Tstream<T | O> {
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 function* () {
                     const iterator = self[Symbol.iterator]();
@@ -1645,27 +1645,27 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Iterates the {@link Jstream}, caching the result. Returns a {@link Jstream} over that cached result.
+     * Iterates the {@link Tstream}, caching the result. Returns a {@link Tstream} over that cached result.
      */
     public get collapse() {
-        return (): Jstream<T> => {
+        return (): Tstream<T> => {
             if (this.properties.infinite) {
                 throw new NeverEndingOperationError(
                     "cannot collapse infinite items"
                 );
             }
-            return Jstream.from(this.toArray());
+            return Tstream.from(this.toArray());
         };
     }
 
     /**
-     * @returns a {@link Jstream} that will cache the original Jstream the first time it is iterated.
+     * @returns a {@link Tstream} that will cache the original Tstream the first time it is iterated.
      * This cache is iterated on subsequent iterations instead of the original.
      */
     public get memoize() {
         const self = this;
-        return function memoize(): Jstream<T> {
-            return new Jstream(
+        return function memoize(): Tstream<T> {
+            return new Tstream(
                 { infinite: self.properties.infinite },
                 returns(memoizeIterable(self))
             );
@@ -1721,7 +1721,7 @@ export default class Jstream<T> implements Iterable<T> {
         ): General<T>;
 
         /**
-         * Reduces the stream to a single value in the same way as {@link Jstream.reduce}.
+         * Reduces the stream to a single value in the same way as {@link Tstream.reduce}.
          * The difference is that the given finalize function is called on the result.
          * The result of this function is returned instead of the original result.
          * @param finalize Applied to the result and the number of items in the stream. The result of this is what gets returned.
@@ -1766,10 +1766,10 @@ export default class Jstream<T> implements Iterable<T> {
 
     public get fold(): {
         /**
-         * Reduces the stream in the same way as {@link Jstream.reduce}.
+         * Reduces the stream in the same way as {@link Tstream.reduce}.
          * The difference is the given initialValue is used in place of the first value in the fist call to the given reducer function:
          * reducer(initialValue, first, 0). The index given corresponding to the item given to the function.
-         * Unlike {@link Jstream.reduce}, an Error isn't thrown in the case of an empty stream. The initial value is returned instead.
+         * Unlike {@link Tstream.reduce}, an Error isn't thrown in the case of an empty stream. The initial value is returned instead.
          */
         <R>(
             initialValue: R,
@@ -1777,7 +1777,7 @@ export default class Jstream<T> implements Iterable<T> {
         ): R;
 
         /**
-         * Reduces the stream in the same way as {@link Jstream.fold}.
+         * Reduces the stream in the same way as {@link Tstream.fold}.
          * The difference is that the given finalize function is called on the result.
          * The result of this function is returned instead of the original result.
          * @param finalize Applied to the result and the number of items in the stream;
@@ -1818,7 +1818,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns Whether the given item is in the Jstream.
+     * @returns Whether the given item is in the Tstream.
      */
     public get includes() {
         const self = this;
@@ -1841,9 +1841,9 @@ export default class Jstream<T> implements Iterable<T> {
 
     /**
      * Counts the number of items in the stream. This will usually require iterating the stream.
-     * To avoid this, consider using {@link Jstream.nonIteratedCountOrUndefined}.
+     * To avoid this, consider using {@link Tstream.nonIteratedCountOrUndefined}.
      *
-     * @returns The number of items in the stream. {@link Infinity} If the {@link Jstream} is known to be infinite.
+     * @returns The number of items in the stream. {@link Infinity} If the {@link Tstream} is known to be infinite.
      */
     public get count() {
         return (): number => {
@@ -1864,7 +1864,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns the number of items in the stream if this can be determined without iterating it. Returns undefined otherwise. {@link Infinity} If the {@link Jstream} is known to be infinite.
+     * @returns the number of items in the stream if this can be determined without iterating it. Returns undefined otherwise. {@link Infinity} If the {@link Tstream} is known to be infinite.
      */
     public get nonIteratedCountOrUndefined() {
         return (): number | undefined => {
@@ -1899,7 +1899,7 @@ export default class Jstream<T> implements Iterable<T> {
 
     /**
      * Creates an Array view of the stream. This will usually entail copying the
-     * stream into an Array like {@link Jstream.toArray} but not always so the
+     * stream into an Array like {@link Tstream.toArray} but not always so the
      * result is not safe to modify.
      * @returns A readonly array containing the contents of the stream.
      */
@@ -1940,7 +1940,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Creates a {@link Set} view of the stream. This will usually entail copying the stream into a Set like {@link Jstream.toSet} but not always so the result is not safe to modify.
+     * Creates a {@link Set} view of the stream. This will usually entail copying the stream into a Set like {@link Tstream.toSet} but not always so the result is not safe to modify.
      * @returns A readonly {@link Set} containing the contents of the stream.
      */
     public get asSet() {
@@ -2027,7 +2027,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * Creates a {@link Map} view of the stream. This will usually entail copying the stream into a Map like {@link Jstream.toSet} but not always so the result is not safe to modify.
+     * Creates a {@link Map} view of the stream. This will usually entail copying the stream into a Map like {@link Tstream.toSet} but not always so the result is not safe to modify.
      * @returns A readonly {@link Map} containing the contents of the stream.
      */
     public get asMap() {
@@ -2125,7 +2125,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get toArrayRecursive() {
-        const toArrayRecursive = (): JstreamToArrayRecursive<Jstream<T>> => {
+        const toArrayRecursive = (): TstreamToArrayRecursive<Tstream<T>> => {
             this.requireThisNotInfinite(
                 "cannot collect infinite items into an array"
             );
@@ -2133,12 +2133,12 @@ export default class Jstream<T> implements Iterable<T> {
         };
         return toArrayRecursive;
 
-        function test(item: any): item is Jstream<any> | any[] {
-            return item instanceof Jstream || Array.isArray(item);
+        function test(item: any): item is Tstream<any> | any[] {
+            return item instanceof Tstream || Array.isArray(item);
         }
 
-        function recursive(items: Jstream<any> | readonly any[]): any[] {
-            if (items instanceof Jstream) {
+        function recursive(items: Tstream<any> | readonly any[]): any[] {
+            if (items instanceof Tstream) {
                 const source = items.getSource();
                 if (Array.isArray(source) && items.properties.freshSource) {
                     for (let i = 0; i < source.length; i++) {
@@ -2168,7 +2168,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     public get asArrayRecursive() {
-        const asArrayRecursive = (): JstreamAsArrayRecursive<Jstream<T>> => {
+        const asArrayRecursive = (): TstreamAsArrayRecursive<Tstream<T>> => {
             this.requireThisNotInfinite(
                 "cannot collect infinite items into an array"
             );
@@ -2177,12 +2177,12 @@ export default class Jstream<T> implements Iterable<T> {
         };
         return asArrayRecursive;
 
-        function test(item: any): item is Jstream<any> | any[] {
-            return item instanceof Jstream || Array.isArray(item);
+        function test(item: any): item is Tstream<any> | any[] {
+            return item instanceof Tstream || Array.isArray(item);
         }
 
         function recursive(items: Iterable<any>): readonly any[] {
-            if (items instanceof Jstream) {
+            if (items instanceof Tstream) {
                 const source = items.getSource();
                 if (Array.isArray(source) && items.properties.freshSource) {
                     for (let i = 0; i < source.length; i++) {
@@ -2306,17 +2306,17 @@ export default class Jstream<T> implements Iterable<T> {
          * Finds the smallest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint): Jstream<T>;
+        (count: number | bigint): Tstream<T>;
         /**
          * Finds the smallest items in the stream using the given comparator.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, comparator: Comparator<T>): Jstream<T>;
+        (count: number | bigint, comparator: Comparator<T>): Tstream<T>;
         /**
          * Finds the smallest items in the stream using the mapping from the given key selector and {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, keySelector: (item: T) => any): Jstream<T>;
+        (count: number | bigint, keySelector: (item: T) => any): Tstream<T>;
     } {
         const self = this;
         const externalMin = min;
@@ -2333,7 +2333,7 @@ export default class Jstream<T> implements Iterable<T> {
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
                 const [count, order = smartComparator] = args;
                 if (count === Infinity) return self.sortBy(order);
-                return new Jstream(
+                return new Tstream(
                     { expensiveSource: true, freshSource: true },
                     () => externalMin(self, count, order)
                 );
@@ -2365,17 +2365,17 @@ export default class Jstream<T> implements Iterable<T> {
          * Finds the largest items in the stream using {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint): Jstream<T>;
+        (count: number | bigint): Tstream<T>;
         /**
          * Finds the largest items in the stream using the given comparator.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, comparator: Comparator<T>): Jstream<T>;
+        (count: number | bigint, comparator: Comparator<T>): Tstream<T>;
         /**
          * Finds the largest items in the stream using the mapping from the given key selector and {@link smartComparator}.
          * @param count How many item to find (unless the stream has less items than that.)
          */
-        (count: number | bigint, keySelector: (item: T) => any): Jstream<T>;
+        (count: number | bigint, keySelector: (item: T) => any): Tstream<T>;
     } {
         const self = this;
         const externalMax = max;
@@ -2392,7 +2392,7 @@ export default class Jstream<T> implements Iterable<T> {
             if (typeof args[0] === "number" || typeof args[0] === "bigint") {
                 const [count, order = smartComparator] = args;
                 if (count === Infinity) return self.sortBy(order);
-                return new Jstream(
+                return new Tstream(
                     { expensiveSource: true, freshSource: true },
                     () => externalMax(self, count, order)
                 );
@@ -2420,7 +2420,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * The inverse of {@link Jstream.some}.
+     * The inverse of {@link Tstream.some}.
      * @returns Whether no item in the stream causes the given condition function to return true.
      */
     public get none() {
@@ -2448,7 +2448,7 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns Whether the {@link Jstream} and the given iterable contain the same items in the same order.
+     * @returns Whether the {@link Tstream} and the given iterable contain the same items in the same order.
      * @param How to check whether to items are equal.
      */
     public get sequenceEquals() {
@@ -2521,12 +2521,12 @@ export default class Jstream<T> implements Iterable<T> {
     }
 
     /**
-     * @returns The stream as an {@link AsyncJstream}.
+     * @returns The stream as an {@link AsyncTstream}.
      */
-    public get toAsyncJstream() {
+    public get toAsyncTstream() {
         const self = this;
-        return function ToAsyncJstream(): AsyncJstream<T> {
-            return new AsyncJstream(self.properties, self.getSource);
+        return function ToAsyncTstream(): AsyncTstream<T> {
+            return new AsyncTstream(self.properties, self.getSource);
         };
     }
 
@@ -2595,7 +2595,7 @@ export default class Jstream<T> implements Iterable<T> {
     // special
     // ===========
     /**
-     * Call the given function with the {@link Jstream}.
+     * Call the given function with the {@link Tstream}.
      * @returns The result of the function.
      */
     public get applyTo() {
@@ -2616,12 +2616,12 @@ export default class Jstream<T> implements Iterable<T> {
             keySelector: (item: T, index: number) => K,
             otherKeySelector: (item: O, index: number) => K,
             resultSelector: (item: T, otherItem: O) => R
-        ): Jstream<R>;
+        ): Tstream<R>;
         <O, R>(
             other: Iterable<O>,
             resultSelector: (item: T, otherItem: O) => R,
             comparison: (item: T, otherItem: O) => boolean
-        ): Jstream<R>;
+        ): Tstream<R>;
     } {
         const self = this;
         return function join<O, K, R>(
@@ -2633,7 +2633,7 @@ export default class Jstream<T> implements Iterable<T> {
                 | ((item: O, index: number) => K)
                 | ((item: T, otherItem: O) => boolean),
             resultSelector?: (item: T, otherItem: O) => R
-        ): Jstream<R> {
+        ): Tstream<R> {
             self.requireOtherNotInfinite(other);
 
             if (resultSelector !== undefined) {
@@ -2645,7 +2645,7 @@ export default class Jstream<T> implements Iterable<T> {
                     item: O,
                     index: number
                 ) => K;
-                return new Jstream({ expensiveSource: true }, function* () {
+                return new Tstream({ expensiveSource: true }, function* () {
                     const otherIndexed = toMap(
                         other,
                         otherKeySelector,
@@ -2672,7 +2672,7 @@ export default class Jstream<T> implements Iterable<T> {
                     otherItem: O
                 ) => boolean;
 
-                return new Jstream({ expensiveSource: true }, function* () {
+                return new Tstream({ expensiveSource: true }, function* () {
                     const otherCached = toArray(other);
 
                     for (const item of self) {
@@ -2693,12 +2693,12 @@ export default class Jstream<T> implements Iterable<T> {
             keySelector: (item: T, index: number) => K,
             innerKeySelector: (item: I, index: number) => K,
             resultSelector: (item: T, innerItem: I | undefined) => R
-        ): Jstream<R>;
+        ): Tstream<R>;
         <I, R>(
             inner: Iterable<I>,
             resultSelector: (item: T, innerItem: I | undefined) => R,
             comparison: (item: T, innerItem: I) => boolean
-        ): Jstream<R>;
+        ): Tstream<R>;
     } {
         const self = this;
         return function leftJoin<I, K, R>(
@@ -2710,7 +2710,7 @@ export default class Jstream<T> implements Iterable<T> {
                 | ((item: I, index: number) => K)
                 | ((item: T, innerItem: I) => boolean),
             resultSelector?: (item: T, innerItem: I | undefined) => R
-        ): Jstream<R> {
+        ): Tstream<R> {
             self.requireOtherNotInfinite(inner);
 
             if (resultSelector !== undefined) {
@@ -2722,7 +2722,7 @@ export default class Jstream<T> implements Iterable<T> {
                     item: I,
                     index: number
                 ) => K;
-                return new Jstream({ expensiveSource: true }, function* () {
+                return new Tstream({ expensiveSource: true }, function* () {
                     const innerIndexed = toMap(
                         inner,
                         innerKeySelector,
@@ -2747,7 +2747,7 @@ export default class Jstream<T> implements Iterable<T> {
                     innerItem: I
                 ) => boolean;
 
-                return new Jstream({ expensiveSource: true }, function* () {
+                return new Tstream({ expensiveSource: true }, function* () {
                     const innerCached = toArray(inner);
 
                     for (const item of self) {
@@ -2770,26 +2770,26 @@ export default class Jstream<T> implements Iterable<T> {
             inner: Iterable<I>,
             keySelector: (item: T, index: number) => K,
             innerKeySelector: (item: I, index: number) => K,
-            resultSelector: (item: T, innerItems: Jstream<I>) => R
-        ): Jstream<R>;
+            resultSelector: (item: T, innerItems: Tstream<I>) => R
+        ): Tstream<R>;
 
         <I, R>(
             inner: Iterable<I>,
-            resultSelector: (item: T, innerItems: Jstream<I>) => R,
+            resultSelector: (item: T, innerItems: Tstream<I>) => R,
             comparison: (item: T, innerItem: I) => boolean
-        ): Jstream<R>;
+        ): Tstream<R>;
     } {
         const self = this;
         return function groupJoin<I, K, R>(
             inner: Iterable<I>,
             keySelectorOrResultSelector:
                 | ((item: T, index: number) => K)
-                | ((item: T, innerItem: Jstream<I>) => R),
+                | ((item: T, innerItem: Tstream<I>) => R),
             innerKeySelectorOrComparison:
                 | ((item: I, index: number) => K)
                 | ((item: T, innerItem: I) => boolean),
-            resultSelector?: (item: T, innerItem: Jstream<I>) => R
-        ): Jstream<R> {
+            resultSelector?: (item: T, innerItem: Tstream<I>) => R
+        ): Tstream<R> {
             self.requireOtherNotInfinite(inner);
 
             if (resultSelector !== undefined) {
@@ -2802,28 +2802,28 @@ export default class Jstream<T> implements Iterable<T> {
                     index: number
                 ) => K;
 
-                return new Jstream({}, function* () {
+                return new Tstream({}, function* () {
                     const innerGrouped = groupBy(inner, innerKeySelector);
 
                     let i = 0;
                     for (const item of self) {
                         const key = keySelector(item, i);
                         const innerGroup = innerGrouped.get(key) ?? [];
-                        yield resultSelector(item, Jstream.from(innerGroup));
+                        yield resultSelector(item, Tstream.from(innerGroup));
                         i++;
                     }
                 });
             } else {
                 const resultSelector = keySelectorOrResultSelector as (
                     item: T,
-                    innerItem: Jstream<I>
+                    innerItem: Tstream<I>
                 ) => R;
                 const comparison = innerKeySelectorOrComparison as (
                     item: T,
                     innerItem: I
                 ) => boolean;
 
-                return new Jstream({}, function* () {
+                return new Tstream({}, function* () {
                     const innerCached = toArray(inner);
 
                     for (const item of self) {
@@ -2833,7 +2833,7 @@ export default class Jstream<T> implements Iterable<T> {
                                 innerGroup.push(innerItem);
                             }
                         }
-                        yield resultSelector(item, Jstream.from(innerGroup));
+                        yield resultSelector(item, Tstream.from(innerGroup));
                     }
                 });
             }
@@ -2841,34 +2841,34 @@ export default class Jstream<T> implements Iterable<T> {
     }
 }
 
-function asSortedJstreamProperties<T>(
-    properties: JstreamProperties<T>
-): SortedJstreamProperties<T> {
+function asSortedTstreamProperties<T>(
+    properties: TstreamProperties<T>
+): SortedTstreamProperties<T> {
     if (properties.infinite) {
         throw new NeverEndingOperationError("cannot sort infinite items");
     }
-    return properties as SortedJstreamProperties<T>;
+    return properties as SortedTstreamProperties<T>;
 }
 
-export type SortedJstreamProperties<T> = JstreamProperties<T> & {
+export type SortedTstreamProperties<T> = TstreamProperties<T> & {
     readonly infinite?: false;
 } & Readonly<
         Partial<{
-            /** If true: the source has already been sorted by the order provided to the {@link SortedJstream}. */
+            /** If true: the source has already been sorted by the order provided to the {@link SortedTstream}. */
             preSorted: boolean;
         }>
     >;
 
-export class SortedJstream<T> extends Jstream<T> {
+export class SortedTstream<T> extends Tstream<T> {
     /** the order to sort the items in */
     private readonly order: Order<T>;
     /** the original getSource function */
     private readonly getUnsortedSource: () => Iterable<T>;
     /** the properties of the original stream */
-    private readonly unsortedProperties: SortedJstreamProperties<T>;
+    private readonly unsortedProperties: SortedTstreamProperties<T>;
 
     public static empty<T>(order: Order<T> = smartComparator) {
-        return new SortedJstream(
+        return new SortedTstream(
             order,
             { preSorted: true, freshSource: true },
             () => []
@@ -2877,7 +2877,7 @@ export class SortedJstream<T> extends Jstream<T> {
 
     public constructor(
         order: Order<T>,
-        properties: SortedJstreamProperties<T> = {},
+        properties: SortedTstreamProperties<T> = {},
         getSource: () => Iterable<T>
     ) {
         if (properties.infinite) {
@@ -2906,18 +2906,18 @@ export class SortedJstream<T> extends Jstream<T> {
     
     public get thenBy(): {
         /** Sorts the stream by the given comparator in ascending order after all previous sorts. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in ascending order after all previous sorts. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
         /** Sorts the stream by the given field after all previous sorts. */
-        <Field extends keyof T>(field: Field): SortedJstream<T>;
+        <Field extends keyof T>(field: Field): SortedTstream<T>;
     } {
         const self = this;
-        return function thenBy(order: Order<T> | keyof T): SortedJstream<T> {
+        return function thenBy(order: Order<T> | keyof T): SortedTstream<T> {
             if (!(order instanceof Function)) {
                 return self.thenBy(item => item[order]);
             }
-            return new SortedJstream<T>(
+            return new SortedTstream<T>(
                 multiCompare([self.order, order]),
                 self.unsortedProperties,
                 self.getUnsortedSource
@@ -2927,20 +2927,20 @@ export class SortedJstream<T> extends Jstream<T> {
 
     public get thenByDescending(): {
         /** Sorts the stream by the given comparator in descending order after all previous sorts. */
-        (comparator: Comparator<T>): SortedJstream<T>;
+        (comparator: Comparator<T>): SortedTstream<T>;
         /** Sorts the stream by the result of the given mapping function using {@link smartComparator} in descending order after all previous sorts. */
-        (keySelector: (item: T) => any): SortedJstream<T>;
+        (keySelector: (item: T) => any): SortedTstream<T>;
         /** Sorts the stream by the given field in descending order after all previous sorts. */
-        <Field extends keyof T>(field: Field): SortedJstream<T>;
+        <Field extends keyof T>(field: Field): SortedTstream<T>;
     } {
         const self = this;
         return function thenByDescending(
             order: Order<T> | keyof T
-        ): SortedJstream<T> {
+        ): SortedTstream<T> {
             if (!(order instanceof Function)) {
                 return self.thenByDescending(item => item[order]);
             }
-            return new SortedJstream<T>(
+            return new SortedTstream<T>(
                 multiCompare([self.order, reverseOrder(order)]),
                 self.unsortedProperties,
                 self.getUnsortedSource
@@ -2949,7 +2949,7 @@ export class SortedJstream<T> extends Jstream<T> {
     }
 
     /**
-     * @returns the number of items in the stream if this can be determined without iterating it. Returns undefined otherwise. {@link Infinity} If the {@link Jstream} is known to be infinite.
+     * @returns the number of items in the stream if this can be determined without iterating it. Returns undefined otherwise. {@link Infinity} If the {@link Tstream} is known to be infinite.
      */
     public get nonIteratedCountOrUndefined() {
         return (): number | undefined => {
@@ -2968,15 +2968,15 @@ export class SortedJstream<T> extends Jstream<T> {
     public get take() {
         const self = this;
         const externalTake = take;
-        return function take(count: number | bigint): SortedJstream<T> {
+        return function take(count: number | bigint): SortedTstream<T> {
             if (count === Infinity) return self;
             if (count === 0 || count === 0n) {
-                return SortedJstream.empty(self.order);
+                return SortedTstream.empty(self.order);
             }
             requireNonNegative(count);
             requireInteger(count);
 
-            return new SortedJstream(
+            return new SortedTstream(
                 self.order,
                 { preSorted: true, expensiveSource: true, freshSource: true },
                 () => {
@@ -2993,8 +2993,8 @@ export class SortedJstream<T> extends Jstream<T> {
     public get skip() {
         const self = this;
         const externalSkip = skip;
-        return function skip(count: number | bigint): SortedJstream<T> {
-            return new SortedJstream(
+        return function skip(count: number | bigint): SortedTstream<T> {
+            return new SortedTstream(
                 self.order,
                 {
                     preSorted: true,

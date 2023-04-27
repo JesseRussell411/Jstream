@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import Jstream from "../src/Jstream";
+import Tstream from "../src/Tstream";
 import { lazy } from "../src/privateUtils/functional";
 
 // const productNames = [
@@ -57,8 +57,8 @@ export interface Product {
     price: number;
 }
 
-export const getProducts = lazy(async (): Promise<Jstream<Product>> => {
+export const getProducts = lazy(async (): Promise<Tstream<Product>> => {
     const data = await fs.readFile("./testData/productData.json");
     const products = JSON.parse(data.toString()) as any[];
-    return Jstream.from(products);
+    return Tstream.from(products);
 });

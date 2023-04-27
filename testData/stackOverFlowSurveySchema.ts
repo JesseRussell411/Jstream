@@ -1,6 +1,6 @@
 import csv from "csv-parse/sync";
 import fs from "fs/promises";
-import Jstream from "../src/Jstream";
+import Tstream from "../src/Tstream";
 
 import { lazy } from "../src/privateUtils/functional";
 
@@ -14,12 +14,12 @@ export interface StackOverflowSurveySchemaEntry {
 }
 
 export const getStackOverflowSurveySchema = lazy(
-    async (): Promise<Jstream<StackOverflowSurveySchemaEntry>> => {
+    async (): Promise<Tstream<StackOverflowSurveySchemaEntry>> => {
         const data = await fs.readFile(
             "./testData/stack overflow survey/survey_results_schema.csv"
         );
         const parsedData: string[][] = csv.parse(data);
-        return Jstream.from(parsedData)
+        return Tstream.from(parsedData)
             .skip(1)
             .map(e => {
                 const record: Record<string, string> = {};
