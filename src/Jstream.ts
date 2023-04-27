@@ -131,7 +131,7 @@ export type Comparison =
 // This is done to ensure that the method always has the correct "this". The same effect could have
 // been achieved by making every method a field containing an arrow function, but that would have
 // made the class instance huge and growing as new features are added, which would increase memory
-// usage and instantiation time (not by much, admittedly).
+// usage and instantiation time (not by _that_ much, admittedly).
 
 // Additionally, named functions are returned instead of anonymous arrow functions. It would
 // have been simpler to return arrow function as they would automatically bind on "this", so

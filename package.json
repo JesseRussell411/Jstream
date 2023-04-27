@@ -1,19 +1,21 @@
 {
-    "name": "j-stream",
-    "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
+    "name": "js-tream",
+    "version": "0.5.0",
+    "description": "Tool for querying iterables.",
+    "main": "/dist/index.js",
     "scripts": {
         "dev": "ts-node dev/scratch.ts",
         "start": "ts-node dev/demo.ts",
-        "test": "jest"
+        "test": "jest",
+        "build": "tsc"
     },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/JesseRussell411/jStream.git"
     },
-    "author": "",
+    "author": "Jesse Russell",
     "license": "ISC",
+    "keywords": ["data", "datascience", "iterable", "linq", "map", "filter", "reduce", "functional", "declarative", "query", "typescript", "stream", "array", "list", "iterator", "no-dependencies", "function"],
     "bugs": {
         "url": "https://github.com/JesseRussell411/jStream/issues"
     },

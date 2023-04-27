@@ -1,9 +1,5 @@
 import Jstream from "../Jstream";
-import {
-    asComparator,
-    multiCompare,
-    smartComparator,
-} from "../sorting/sorting";
+import { asComparator, smartComparator } from "../sorting/sorting";
 import { AwaitableIterable, AwaitableIterator } from "../types/async";
 import {
     AsMap,
