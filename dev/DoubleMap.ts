@@ -1,4 +1,4 @@
-import Tstream from "../src/Tstream";
+import { Tstream } from "../src/Tstream";
 
 export class DoubleMap<A, B> implements Map<A, B> {
     private aIndex: Map<A, B>;

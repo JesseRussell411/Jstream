@@ -9,7 +9,7 @@ import { BreakSignal } from "./types/symbols";
 // TODO expensiveSource, insertAll, documentation
 export type AsyncTstreamProperties<T> = TstreamProperties<T>;
 
-export default class AsyncTstream<T> implements AsyncIterable<T> {
+export class AsyncTstream<T> implements AsyncIterable<T> {
     private readonly getSource: () => Awaitable<
         AwaitableIterable<T> | AwaitableIterator<T>
     >;

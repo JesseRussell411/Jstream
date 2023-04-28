@@ -1,5 +1,6 @@
 import { inspect } from "util";
-import Tstream, { SortedTstream } from "../src/Tstream";
+// import { SortedTstream, Tstream } from "../src/Tstream";
+import { SortedTstream, Tstream } from "../src/Tstream";
 import { pick } from "../src/privateUtils/objects";
 import { Customer, getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
@@ -7,7 +8,7 @@ import { getPurchases } from "../testData/purchases";
 import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
 import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
 import { requireNumberToBe } from "../src/privateUtils/errorGuards";
-import AsyncTstream from "../src/AsyncTstream";
+import { AsyncTstream } from "../src/AsyncTstream";
 import { max, min, takeFinal } from "../src/privateUtils/data";
 import { reverseOrder } from "../src/sorting/sorting";
 import DoubleLinkedList from "../src/privateUtils/dataStructures/DoubleLinkedList";
@@ -33,21 +34,28 @@ async function main() {
         )
         .collapse();
 
-    const customers = customerData.groupJoin(
-        purchases,
-        customer => customer.id,
-        purchase => purchase.customerID,
-        (customer, purchases) => ({ ...customer, purchases })
-    ).collapse();
+    const customers = customerData
+        .groupJoin(
+            purchases,
+            customer => customer.id,
+            purchase => purchase.customerID,
+            (customer, purchases) => ({ ...customer, purchases })
+        )
+        .collapse();
 
+    customers
+        .filter("state", "is", "DE")
+        .applyTo(DEC => console.log([...DEC.asArray()]));
 
-    customers.filter("state", "is", "DE").applyTo(DEC => console.log([...DEC.asArray()]));
+    customers.map(c => ({ ...c, purchases: c.purchases.asArray() }));
 
-
-
-    customers.map(c => ({...c, purchases: c.purchases.asArray()}))
-
-    customers.take(20).sortBy("city").thenBy("last_name").thenBy("first_name").thenBy("id").includes({id: 7}, c => c.id);
+    customers
+        .take(20)
+        .sortBy("city")
+        .thenBy("last_name")
+        .thenBy("first_name")
+        .thenBy("id")
+        .includes({ id: 7 }, c => c.id);
 
     // use(customerData, products, purchases);
     // console.log(
