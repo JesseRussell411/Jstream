@@ -1,11 +1,13 @@
 {
     "name": "t-streams",
-    "version": "0.5.2",
+    "version": "0.5.81",
     "description": "Tool for querying iterables.",
-    "files": ["dist/**/*"],
+    "files": ["dist/*"],
     "main": "dist/index.js",
+    "module": "dist/index.js",
+    "type":"module",
     "scripts": {
-        "dev": "ts-node dev/scratch.ts",
+        "dev": "ts-node --esm dev/scratch.ts",
         "start": "ts-node dev/demo.ts",
         "test": "jest",
         "build": "tsc"
