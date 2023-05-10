@@ -1,4 +1,4 @@
-import { AsyncTstream } from "./AsyncTstream";
+import AsyncTstream from "./AsyncTstream";
 import NeverEndingOperationError from "./errors/NeverEndingOperationError";
 import {
     asStandardCollection,
@@ -143,7 +143,7 @@ export type Comparison =
 // TODO? arrow functions can be named too if they are assigned to a variable first.
 // Consider changing to named arrow functions if a reason to do so comes up.
 
-export class Tstream<T> implements Iterable<T> {
+export default class Tstream<T> implements Iterable<T> {
     // =================
     //   private static
     // =================

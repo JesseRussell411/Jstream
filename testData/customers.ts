@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import {Tstream} from "../src/Tstream";
+import Tstream from "../src/Tstream";
 
 import { lazy } from "../src/privateUtils/functional";
 

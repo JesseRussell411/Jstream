@@ -1,4 +1,4 @@
-export {Comparison, SortedTstream, SortedTstreamProperties, Tstream, TstreamAsArrayRecursive, TstreamProperties, TstreamToArrayRecursive} from "./Tstream";
+export * from "./Tstream";
 export * from "./AsyncTstream";
 export * from "./errors/NeverEndingOperationError";
 export * from "./sorting/sorting";

@@ -1,4 +1,4 @@
-import { Tstream } from "../Tstream";
+import Tstream from "../Tstream";
 import { asComparator, smartComparator } from "../sorting/sorting";
 import { AwaitableIterable, AwaitableIterator } from "../types/async";
 import {
