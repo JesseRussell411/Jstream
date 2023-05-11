@@ -143,7 +143,7 @@ export type Comparison =
 // TODO? arrow functions can be named too if they are assigned to a variable first.
 // Consider changing to named arrow functions if a reason to do so comes up.
 
-export default class Tstream<T> implements Iterable<T> {
+export class Tstream<T> implements Iterable<T> {
     // =================
     //   private static
     // =================

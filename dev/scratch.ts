@@ -1,5 +1,5 @@
 import { inspect } from "util";
-import Tstream, { SortedTstream } from "../src/Tstream";
+import { Tstream, SortedTstream } from "../dist/index";
 import { pick } from "../src/privateUtils/objects";
 import { Customer, getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
