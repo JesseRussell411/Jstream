@@ -2,6 +2,8 @@
 
 // TODO red-black tree, better memory usage
 
+// design note: If they ever add a sorted map or set to the ecmascript standard, I will be very happy and delete this and use that instead.
+
 export type Entry<K, V> = readonly [key: K, value: V];
 
 export default class AVLTree<K, V> implements Iterable<Entry<K, V>> {

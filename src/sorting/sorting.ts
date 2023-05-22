@@ -31,12 +31,12 @@ export function asComparator<T>(order: Order<T>): Comparator<T> {
 //TODO better description:
 /**
  * A much better default comparator.
- * Tries to sort things how you would expect them to be sorted. false comes before true, symbols are sorted by their description, etc.
- * numbers are sorted by their NUMERIC value not their ASCII value so 2 comes before 10 like it should (also, number and bigint are sorted together so 2n will come before 3 and 4n will come after 3, etc.).
+ * Tries to sort things how you would expect them to be sorted.
+ * Numbers are sorted by their NUMERIC value not their ASCII value so 2 comes before 10 like it should (also, number and bigint are sorted together so 2n will come before 3 and 4n will come after 3, etc.).
  *
  * earlier {@link Date}s come before later {@link Date}s
  *
- * doesn't sort arrays, objects, or functions
+ * doesn't sort arrays, objects, functions, or symbols
  */
 export function smartComparator(a: any, b: any): number {
     // TODO! add wrapper class support (Number, Boolean, etc.)
@@ -195,6 +195,9 @@ export function smartComparator(a: any, b: any): number {
     }
 }
 
+/**
+ * @returns A comparator which sorts by the given {@link Order}s. It sorts by the first order in the {@link Iterable} of {@link Order}s, then by the second, then the third, etc.
+ */
 export function multiCompare<T>(orders: Iterable<Order<T>>): Comparator<T> {
     const comparators: Comparator<T>[] = [];
     for (const order of orders) {

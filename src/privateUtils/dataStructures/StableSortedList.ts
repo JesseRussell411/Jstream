@@ -1,5 +1,10 @@
 import { Comparator } from "../../types/sorting";
 import AVLTree from "./AVLTree";
+/**
+ * A list who's contests are sorted by their value first and their insertion time second, providing a stable sort.
+ * 
+ * This sorting is the iteration order of the list.
+ */
 export default class StableSortedList<T> implements Iterable<T> {
     private readonly sortedTree: AVLTree<{ item: T; index: bigint }, undefined>;
     private readonly maxLength: number;

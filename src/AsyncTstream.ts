@@ -40,6 +40,9 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         };
     };
 
+    /**
+     * @returns An {@link AsyncTstream} over the given iterable object or the result of the given function.
+     */
     public static over<T>(
         source:
             | Awaitable<AwaitableIterable<T>>
@@ -52,10 +55,18 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         }
     }
 
+    /**
+     * @returns An {@link AsyncTstream} over the given arguments. Use {@link over} with an array literal with "as const" at the end (like this: [1,2,3] as const) for better typing.
+     */
     public static of<T>(...items: T[]): AsyncTstream<T> {
         return AsyncTstream.over(items);
     }
 
+    /**
+     * Applies the given function to each item in the {@link AsyncTstream} in order.
+     * 
+     * Return a {@link breakSignal} symbol from the function to stop iteration like the break keyword in a normal for or while loop.
+     */
     public get forEach() {
         const self = this;
         return function (
@@ -65,6 +76,10 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         };
     }
 
+    /**
+     * Applies the mapping function to each item in the {@link AsyncTstream}.
+     * @returns An {@link AsyncTstream} over the results
+     */
     public get map() {
         const self = this;
         return function map<R>(
@@ -90,6 +105,11 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         };
     }
 
+    /**
+     * Applies the given condition function to each item in the {@link AsyncTstream}.
+     * 
+     * @returns An {@link AsyncTstream} over all the items that made the condition function return truthy.
+     */
     public get filter() {
         const self = this;
         return function filter<R extends T = T>(
@@ -121,6 +141,11 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         };
     }
 
+    /**
+     * Applies the given condition function to each item in the {@link AsyncTstream} until the function returns falsy.
+     * 
+     * @returns An {@link AsyncTstream} over all the items that caused the function to return truthy before it returned falsy.
+     */
     public get takeWhile() {
         const self = this;
         return function (condition: (item: T, index: number) => Awaitable<boolean>) {
@@ -152,6 +177,11 @@ export default class AsyncTstream<T> implements AsyncIterable<T> {
         };
     }
 
+    /**
+     * Applies the given condition function to each item in the {@link AsyncTstream} until the function returns falsy.
+     * 
+     * @returns An {@link AsyncTstream} over all the items after the item that caused the function to return falsy including that item.
+     */
     public get skipWhile() {
         const self = this;
         return function (condition: (item: T, index: number) => Awaitable<boolean>) {
