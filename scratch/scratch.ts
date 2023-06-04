@@ -1,16 +1,10 @@
 import { inspect } from "util";
-import { Tstream, SortedTstream } from "../dist/index";
+import { Tstream } from "../src/Tstream";
+import { min } from "../src/privateUtils/data";
 import { pick } from "../src/privateUtils/objects";
-import { Customer, getCustomers } from "../testData/customers";
+import { getCustomers } from "../testData/customers";
 import { getProducts } from "../testData/products";
 import { getPurchases } from "../testData/purchases";
-import { getStackOverflowSurvey } from "../testData/stackOverFlowSurvey";
-import { getStackOverflowSurveySchema } from "../testData/stackOverFlowSurveySchema";
-import { requireNumberToBe } from "../src/privateUtils/errorGuards";
-import AsyncTstream from "../src/AsyncTstream";
-import { max, min, takeFinal } from "../src/privateUtils/data";
-import { reverseOrder } from "../src/sorting/sorting";
-import DoubleLinkedList from "../src/privateUtils/dataStructures/DoubleLinkedList";
 use(inspect);
 
 /** stops unused errors */
@@ -386,6 +380,11 @@ async function main() {
             console.log(strscopy);
         }
     }
+
+    console.log("reduced", Tstream.of(42).reduce((a, b) => 1, (r, c) => {
+        console.log({result: r, count: c});
+        return 5
+    }))
 }
 
 main();

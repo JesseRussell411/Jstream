@@ -608,6 +608,7 @@ export class Tstream<T> implements Iterable<T> {
             }
         } as any;
     }
+    
     /**
      * Appends the items to the end of the stream.
      */
@@ -717,6 +718,7 @@ export class Tstream<T> implements Iterable<T> {
             return self.sortByDescending(order);
         };
     }
+
     public get sortBy(): {
         /** Sorts the stream using the given comparator in ascending order. */
         (comparator: Comparator<T>): SortedTstream<T>;
@@ -1617,6 +1619,9 @@ export class Tstream<T> implements Iterable<T> {
         };
     }
 
+    /**
+     * Inserts the given items in-between each item in the {@link Tstream}.
+     */
     public get interleave() {
         const self = this;
         return function interleave<O>(items: Iterable<O>): Tstream<T | O> {
@@ -1714,11 +1719,11 @@ export class Tstream<T> implements Iterable<T> {
          *
          * If the stream only contains 1 item, that item is returned.
          *
-         * If the stream contains no items, an Error is thrown.
+         * If the stream contains no items, undefined is returned.
          */
-        (
-            reducer: (result: General<T>, item: T, index: number) => General<T>
-        ): General<T>;
+        (reducer: (result: General<T>, item: T, index: number) => General<T>):
+            | General<T>
+            | undefined;
 
         /**
          * Reduces the stream to a single value in the same way as {@link Tstream.reduce}.
@@ -1728,38 +1733,35 @@ export class Tstream<T> implements Iterable<T> {
          */
         <F>(
             reducer: (result: General<T>, item: T, index: number) => General<T>,
-            finalize: (result: General<T>, count: number) => F
+            finalize: (result: General<T> | undefined, count: number) => F
         ): F;
     } {
         const self = this;
         return function reduce<F = General<T>>(
             reducer: (result: General<T>, item: T, index: number) => General<T>,
-            finalize?: (result: General<T>, count: number) => F
-        ): F {
+            finalize?: (result: General<T> | undefined, count: number) => F
+        ): F | General<T> | undefined {
             self.requireThisNotInfinite("cannot reduce infinite items");
             const iterator = self[Symbol.iterator]();
             let next = iterator.next();
 
-            // TODO maybe just return undefined instead
-            if (next.done) {
-                throw new Error(
-                    "cannot reduce empty iterable. no initial value"
-                );
-            }
-
-            let result: General<T> = next.value as General<T>;
-
-            let i = 1;
-            while (!(next = iterator.next()).done) {
-                result = reducer(result, next.value, i);
-
+            let result: General<T> | undefined = undefined;
+            let i = 0;
+            if (!next.done) {
+                result = next.value as General<T>;
                 i++;
+
+                while (!(next = iterator.next()).done) {
+                    result = reducer(result as General<T>, next.value, i);
+
+                    i++;
+                }
             }
 
             if (finalize !== undefined) {
                 return finalize(result, i);
             } else {
-                return result as F;
+                return result;
             }
         };
     }
@@ -1796,11 +1798,7 @@ export class Tstream<T> implements Iterable<T> {
             reducer: (result: R, item: T, index: number) => R,
             finalize?: (result: R, count: number) => F
         ): F | R {
-            if (self.properties.infinite) {
-                throw new NeverEndingOperationError(
-                    "cannot fold infinite items"
-                );
-            }
+            self.requireThisNotInfinite("cannot fold infinite items");
             let result = initialValue;
 
             let i = 0;
@@ -2903,7 +2901,7 @@ export class SortedTstream<T> extends Tstream<T> {
         this.unsortedProperties = properties;
         this.order = order;
     }
-    
+
     public get thenBy(): {
         /** Sorts the stream by the given comparator in ascending order after all previous sorts. */
         (comparator: Comparator<T>): SortedTstream<T>;
